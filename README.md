@@ -28,5 +28,6 @@ Launch the *"chatgpt.py"* script (depending on your environment you may need to 
 
 `python chatgpt.py`
 
-Then just chat! Use the `/q` command to quit.
+Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
+Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session.
