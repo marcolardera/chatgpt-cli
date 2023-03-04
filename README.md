@@ -16,15 +16,19 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 You need Python installed on your system.
 
+Clone the repository:
+
+`git clone https://github.com/marcolardera/chatgpt-cli.git`
+
 Install the dependencies:
 
 `pip install -r requirements.txt`
 
-After that, edit the *config.yaml* file, putting your API Key as the value of the "api-key" parameter. Save the file.
+After that, edit the *config.yaml* file, putting your API Key as the value of the `api-key` parameter. Save the file.
 
 ## Usage
 
-Launch the *"chatgpt.py"* script (depending on your environment you may need to use the "python3" command instead of "python"):
+Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
 
 `python chatgpt.py`
 
