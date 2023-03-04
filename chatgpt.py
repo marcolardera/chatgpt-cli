@@ -73,21 +73,42 @@ def main() -> None:
             messages.pop() 
             continue
 
-        response=r.json()
-        if "error" in response:
-            if response["error"]["code"]=="context_length_exceeded":
-                console.print("Maximum context length exceeded", style="red bold")
-                break
-                #TODO: Develop a better strategy to manage this case
 
-        message_response=response["choices"][0]["message"]
-        usage_response=response["usage"]
+        if r.status_code==200:
+            response=r.json()
 
-        console.print(message_response["content"].strip())
+            message_response=response["choices"][0]["message"]
+            usage_response=response["usage"]
+    
+            console.print(message_response["content"].strip())
+    
+            #Update message history and token counter
+            messages.append(message_response)
+            total_tokens+=usage_response["total_tokens"]
 
-        #Update message history and token counter
-        messages.append(message_response)
-        total_tokens+=usage_response["total_tokens"]
+        elif r.status_code==400:
+            response=r.json()
+            if "error" in response:
+                if response["error"]["code"]=="context_length_exceeded":
+                    console.print("Maximum context length exceeded", style="red bold")
+                    break
+                    #TODO: Develop a better strategy to manage this case
+            console.print("Invalid request", style="bold red")
+            break
+        
+        elif r.status_code==401:
+            console.print("Invalid API Key", style="bold red")
+            break
+        
+        elif r.status_code==429:
+            console.print("Rate limit or maximum monthly limit exceeded", style="bold red")
+            messages.pop()
+            continue
+        
+        else:
+            console.print(f"Unknown error, status code {r.status_code}", style="bold red")
+            console.print(r.json())
+            break
 
 if __name__ == "__main__":
     main()
