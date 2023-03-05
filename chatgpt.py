@@ -1,14 +1,13 @@
-#!/Users/ryanchen/.asdf/shims/python
 import atexit
 import requests
 import sys
 import yaml
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 
-
+CONFIG_FILE="config.yaml"
 BASE_ENDPOINT="https://api.openai.com/v1"
 PRICING_RATE=0.002
 
@@ -16,31 +15,47 @@ PRICING_RATE=0.002
 #Initialize the messages history list
 #It's mandatory to pass it at each API call in order to have a conversation
 messages=[]
+#Initialize the token counter
 total_tokens=0
+#Initialize the console
 console=Console()
 
+def load_config(config_file: str) -> dict:
+    """
+    Read a YAML config file and returns it's content as a dictionary
+    """
+    with open(config_file) as file:
+        config=yaml.load(file, Loader=yaml.FullLoader)
+        return config
 
-def display_expense() -> None:
+def calculate_expense(tokens: int, pricing: float) -> float:
     """
     Calculate the expense, given a number of tokens and a pricing rate
     """
-    total_expense=round((total_tokens/1000)*PRICING_RATE, 3)
+    expense=(tokens/1000)*pricing
+    return round(expense, 3)
+
+def display_expense() -> None:
+    total_expense=calculate_expense(total_tokens, PRICING_RATE)
     console.print(f"Total tokens used: [green bold]{total_tokens}")
     console.print(f"Estimated expense: [green bold]${total_expense}")
 
-
 def start_prompt(session, config):
-    console=Console()
+
+    #TODO: Refactor to avoid a global variable
+    global total_tokens
 
     headers={
         "Content-Type": "application/json",
         "Authorization": f"Bearer {config['api-key']}"
     }
 
-    global total_tokens
-    message=session.prompt(f"[{total_tokens}] >>> ")
+    message=session.prompt(HTML(f"<b>[{total_tokens}] >>> </b>"))
+    
     if message.lower() == "/q":
         raise EOFError
+    if message.lower() == "":
+        raise KeyboardInterrupt
     
     messages.append(
         {
@@ -110,15 +125,14 @@ def main() -> None:
     session = PromptSession(history=history)
     atexit.register(display_expense)
 
-    # load config
     try:
-        with open("config.yaml") as file:
-            config=yaml.load(file, Loader=yaml.FullLoader)
-        console.print("ChatGPT CLI", style="bold")
-        console.print(f"Model in use: [green bold]{config['model']}")
+        config=load_config(CONFIG_FILE)
     except FileNotFoundError:
         console.print("Configuration file not found", style="red bold")
         sys.exit(1)
+
+    console.print("ChatGPT CLI", style="bold")
+    console.print(f"Model in use: [green bold]{config['model']}")
 
     while True:
         try:
@@ -127,7 +141,6 @@ def main() -> None:
             continue
         except EOFError:
             break
-
 
 if __name__ == "__main__":
     main()
