@@ -1,0 +1,28 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "chatgpt-cli"
+version = "0.1.0"
+description = "Simple command line tool for chatting with ChatGPT using the official API"
+authors = ["Marco Lardera"]
+homepage = "https://github.com/marcolardera/chatgpt-cli"
+readme = "README.md"
+packages = [
+  { include = "chatgpt-cli" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+certifi = "^2022.12.7"
+charset-normalizer = "^3.1.0"
+idna = "^3.4"
+markdown-it-py = "^2.2.0"
+mdurl = "^0.1.2"
+Pygments = "^2.14.0"
+rich = "^13.3.2"
+PyYAML = "^6.0"
+requests = "^2.28.2"
+urllib3 = "^1.26.14"
+prompt-toolkit = "^3.0.38"
