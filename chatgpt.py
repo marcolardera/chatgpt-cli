@@ -1,5 +1,5 @@
-import os
 import atexit
+import os
 import requests
 import sys
 import yaml

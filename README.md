@@ -26,6 +26,8 @@ Install the dependencies:
 
 After that, edit the *config.yaml* file, putting your API Key as the value of the `api-key` parameter. Save the file.
 
+As an alternative, is possible to configure the API Key using the environment variable `OAI_SECRET_KEY` (Check your operating system's documentation on how to do this).
+
 ## Usage
 
 Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
