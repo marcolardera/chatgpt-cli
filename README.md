@@ -20,9 +20,13 @@ Clone the repository:
 
 `git clone https://github.com/marcolardera/chatgpt-cli.git`
 
-Install the dependencies:
+Install with Pip:
 
-`pip install -r requirements.txt`
+`pip install .`
+
+or with Poetry:
+
+`poetry install`
 
 After that, edit the *config.yaml* file, putting your API Key as the value of the `api-key` parameter. Save the file.
 
@@ -32,7 +36,7 @@ As an alternative, is possible to configure the API Key using the environment va
 
 Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
 
-`python chatgpt.py`
+`python chatgpt-cli`
 
 Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
