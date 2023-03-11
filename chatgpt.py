@@ -1,6 +1,7 @@
 #!/bin/env python
 
 import atexit
+import click
 import os
 import requests
 import sys
@@ -123,7 +124,11 @@ def start_prompt(session, config):
         raise EOFError
 
 
-def main() -> None:
+@click.command()
+@click.option(
+    "-c", "--context", "context", type=click.File("r"), help="Path to a context file"
+)
+def main(context) -> None:
     history = FileHistory(".history")
     session = PromptSession(history=history)
     atexit.register(display_expense)
@@ -136,6 +141,11 @@ def main() -> None:
 
     console.print("ChatGPT CLI", style="bold")
     console.print(f"Model in use: [green bold]{config['model']}")
+
+    # Context from the command line option
+    if context:
+        console.print(f"Context file: [green bold]{context.name}")
+        messages.append({"role": "system", "content": context.read().strip()})
 
     while True:
         try:

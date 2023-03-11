@@ -28,7 +28,7 @@ After that, edit the *config.yaml* file, putting your API Key as the value of th
 
 As an alternative, is possible to configure the API Key using the environment variable `OAI_SECRET_KEY` (Check your operating system's documentation on how to do this).
 
-## Usage
+## Basic usage
 
 Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
 
@@ -37,3 +37,17 @@ Launch the *chatgpt.py* script (depending on your environment you may need to us
 Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
 Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session.
+
+## Context
+
+Use the `--context <FILE PATH>` command line option (or `-c` as a short version) in order to provide the model an initial context (technically a *system* message for ChatGPT). For example:
+
+`python chatgpt.py --context notes.txt`
+
+Both absolute and relative paths are accepted.
+
+Typical use cases for this feature are:
+
+- Giving the model some code and ask to explain/refactor
+- Giving the model some text and ask to rephrase with a different style (more formal, more friendly, etc)
+- Asking for a translation of some text
