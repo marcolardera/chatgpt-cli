@@ -32,7 +32,7 @@ def load_config() -> dict:
     config = {"api-key": "", "model": "gpt-3.5-turbo"}
 
     if os.getenv("XDG_CONFIG_HOME"):
-        config_dir = os.getenv("XDG_CONFIG_HOME") + "/chatgt-cli"
+        config_dir = os.getenv("XDG_CONFIG_HOME") + "/chatgpt-cli"
     elif os.getenv("HOME"):
         config_dir = os.environ("HOME") + "/.config/chagpt-cli"
 
