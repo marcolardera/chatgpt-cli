@@ -46,7 +46,7 @@ def load_config() -> dict:
             config = yaml.load(file, Loader=yaml.FullLoader)
 
     if not config["api-key"].startswith("sk"):
-        config["api-key"] = os.getenv("OAI_SECRET_KEY")
+        config["api-key"] = os.getenv("OAI_SECRET_KEY", "fail")
     while not config["api-key"].startswith("sk"):
         config["api-key"] = input(
             "Enter your OpenAI Secret Key (should start with 'sk-')\n"
