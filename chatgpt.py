@@ -34,7 +34,7 @@ def load_config() -> dict:
     if os.getenv("XDG_CONFIG_HOME"):
         config_dir = os.getenv("XDG_CONFIG_HOME") + "/chatgpt-cli"
     elif os.getenv("HOME"):
-        config_dir = os.environ("HOME") + "/.config/chagpt-cli"
+        config_dir = os.getenv("HOME") + "/.config/chagpt-cli"
 
     if config_dir:
         config_file = config_dir + "/config.yaml"
