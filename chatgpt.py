@@ -11,7 +11,6 @@ from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 
-CONFIG_FILE = "config.yaml"
 BASE_ENDPOINT = "https://api.openai.com/v1"
 PRICING_RATE = 0.002
 
@@ -25,18 +24,34 @@ total_tokens = 0
 console = Console()
 
 
-def load_config(config_file: str) -> dict:
+def load_config() -> dict:
     """
-    Read a YAML config file and returns it's content as a dictionary
+    Read configuration file and env vars in this order of precedence and returns config as a dictionary
     """
-    with open(config_file) as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
+
+    config = {"api-key": "", "model": "gpt-3.5-turbo"}
+
+    if os.getenv("XDG_CONFIG_HOME"):
+        config_dir = os.getenv("XDG_CONFIG_HOME") + "/chatgt-cli"
+    elif os.getenv("HOME"):
+        config_dir = os.environ("HOME") + "/.config/chagpt-cli"
+
+    if config_dir:
+        config_file = config_dir + "/config.yaml"
+    else:
+        config_file = "config.yaml"
+
+    if os.path.isfile(config_file):
+        with open(config_file) as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
+
     if not config["api-key"].startswith("sk"):
-        config["api-key"] = os.environ.get("OAI_SECRET_KEY", "fail")
+        config["api-key"] = os.getenv("OAI_SECRET_KEY")
     while not config["api-key"].startswith("sk"):
         config["api-key"] = input(
             "Enter your OpenAI Secret Key (should start with 'sk-')\n"
         )
+
     return config
 
 
@@ -133,11 +148,7 @@ def main(context) -> None:
     session = PromptSession(history=history)
     atexit.register(display_expense)
 
-    try:
-        config = load_config(CONFIG_FILE)
-    except FileNotFoundError:
-        console.print("Configuration file not found", style="red bold")
-        sys.exit(1)
+    config = load_config()
 
     console.print("ChatGPT CLI", style="bold")
     console.print(f"Model in use: [green bold]{config['model']}")
