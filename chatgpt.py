@@ -13,14 +13,20 @@ from rich.console import Console
 
 CONFIG_FILE = "config.yaml"
 BASE_ENDPOINT = "https://api.openai.com/v1"
-PRICING_RATE = 0.002
+
+PRICING_RATE = {
+    "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
+    "gpt-4": {"prompt": 0.03, "completion": 0.06},
+    "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
+}
 
 
 # Initialize the messages history list
 # It's mandatory to pass it at each API call in order to have a conversation
 messages = []
-# Initialize the token counter
-total_tokens = 0
+# Initialize the token counters
+prompt_tokens = 0
+completion_tokens = 0
 # Initialize the console
 console = Console()
 
@@ -40,30 +46,45 @@ def load_config(config_file: str) -> dict:
     return config
 
 
-def calculate_expense(tokens: int, pricing: float) -> float:
+def calculate_expense(
+    prompt_tokens: int,
+    completion_tokens: int,
+    prompt_pricing: float,
+    completion_pricing: float,
+) -> float:
     """
-    Calculate the expense, given a number of tokens and a pricing rate
+    Calculate the expense, given the number of tokens and the pricing rates
     """
-    expense = (tokens / 1000) * pricing
+    expense = ((prompt_tokens / 1000) * prompt_pricing) + (
+        (completion_tokens / 1000) * completion_pricing
+    )
     return round(expense, 6)
 
 
-def display_expense() -> None:
-    total_expense = calculate_expense(total_tokens, PRICING_RATE)
-    console.print(f"Total tokens used: [green bold]{total_tokens}")
+def display_expense(model) -> None:
+    """
+    Given the model used, display total tokens used and estimated expense
+    """
+    total_expense = calculate_expense(
+        prompt_tokens,
+        completion_tokens,
+        PRICING_RATE[model]["prompt"],
+        PRICING_RATE[model]["completion"],
+    )
+    console.print(f"Total tokens used: [green bold]{prompt_tokens + completion_tokens}")
     console.print(f"Estimated expense: [green bold]${total_expense}")
 
 
 def start_prompt(session, config):
-    # TODO: Refactor to avoid a global variable
-    global total_tokens
+    # TODO: Refactor to avoid a global variables
+    global prompt_tokens, completion_tokens
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {config['api-key']}",
     }
 
-    message = session.prompt(HTML(f"<b>[{total_tokens}] >>> </b>"))
+    message = session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
 
     if message.lower() == "/q":
         raise EOFError
@@ -95,9 +116,10 @@ def start_prompt(session, config):
 
         console.print(message_response["content"].strip())
 
-        # Update message history and token counter
+        # Update message history and token counters
         messages.append(message_response)
-        total_tokens += usage_response["total_tokens"]
+        prompt_tokens += usage_response["prompt_tokens"]
+        completion_tokens += usage_response["completion_tokens"]
 
     elif r.status_code == 400:
         response = r.json()
@@ -131,13 +153,15 @@ def start_prompt(session, config):
 def main(context) -> None:
     history = FileHistory(".history")
     session = PromptSession(history=history)
-    atexit.register(display_expense)
 
     try:
         config = load_config(CONFIG_FILE)
     except FileNotFoundError:
         console.print("Configuration file not found", style="red bold")
         sys.exit(1)
+
+    #Run the display expense function when exiting the script
+    atexit.register(display_expense, model=config["model"])
 
     console.print("ChatGPT CLI", style="bold")
     console.print(f"Model in use: [green bold]{config['model']}")

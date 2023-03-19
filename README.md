@@ -12,7 +12,7 @@ Go to [platform.openai.com](https://platform.openai.com) and log-in with your Op
 
 You may also need to add a payment method, clicking on *Billing --> Payment methods*. New accounts should have some free credits, but adding a payment method may still be mandatory. For pricing, check [this page](https://openai.com/pricing).
 
-## Installation and configuration
+## Installation and essential configuration
 
 You need Python installed on your system.
 
@@ -28,6 +28,10 @@ After that, edit the *config.yaml* file, putting your API Key as the value of th
 
 As an alternative, is possible to configure the API Key using the environment variable `OAI_SECRET_KEY` (Check your operating system's documentation on how to do this).
 
+## Models
+
+ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. On March 14, 2023 OpenAI released the new `gpt-4` and `gpt-4-32k` models, only available to a limited amount of users for now. In order to use them, edit the `model` parameter in the *config.yaml* file. 
+
 ## Basic usage
 
 Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
@@ -36,7 +40,7 @@ Launch the *chatgpt.py* script (depending on your environment you may need to us
 
 Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
-Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session.
+Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session, based on the specific model in use.
 
 ## Context
 
