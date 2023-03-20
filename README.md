@@ -20,6 +20,8 @@ Clone the repository:
 
 `git clone https://github.com/marcolardera/chatgpt-cli.git`
 
+`cd chatgpt-cli`
+
 Install the dependencies:
 
 `pip install -r requirements.txt`
@@ -31,6 +33,8 @@ As an alternative, is possible to configure the API Key using the environment va
 ## Models
 
 ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. On March 14, 2023 OpenAI released the new `gpt-4` and `gpt-4-32k` models, only available to a limited amount of users for now. In order to use them, edit the `model` parameter in the *config.yaml* file. 
+
+Check [this page](https://platform.openai.com/docs/models) for the technical details of each model.
 
 ## Basic usage
 
