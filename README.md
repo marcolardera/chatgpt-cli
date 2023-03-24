@@ -14,7 +14,7 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 ## Installation and essential configuration
 
-You need Python installed on your system.
+You need Python and Git installed on your system.
 
 Clone the repository:
 
@@ -26,9 +26,13 @@ Install the dependencies:
 
 `pip install -r requirements.txt`
 
-After that, edit the *config.yaml* file, putting your API Key as the value of the `api-key` parameter. Save the file.
+After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
 
-As an alternative, is possible to configure the API Key using the environment variable `OAI_SECRET_KEY` (Check your operating system's documentation on how to do this).
+- Edit the `api-key` parameter in the *config.yaml* file
+- Set the environment variable `OPENAI_API_KEY` (Check your operating system's documentation on how to do this)
+- Use the command line option `--key` or `-k`
+
+If more then one API Key is provided, ChatGPT CLI follows this priority order: *Command line option > Environment variable > Configuration file*
 
 ## Models
 

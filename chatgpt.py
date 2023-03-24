@@ -13,6 +13,7 @@ from rich.console import Console
 
 CONFIG_FILE = "config.yaml"
 BASE_ENDPOINT = "https://api.openai.com/v1"
+ENV_VAR = "OPENAI_API_KEY"
 
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
@@ -37,12 +38,7 @@ def load_config(config_file: str) -> dict:
     """
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
-    if not config["api-key"].startswith("sk"):
-        config["api-key"] = os.environ.get("OAI_SECRET_KEY", "fail")
-    while not config["api-key"].startswith("sk"):
-        config["api-key"] = input(
-            "Enter your OpenAI Secret Key (should start with 'sk-')\n"
-        )
+
     return config
 
 
@@ -150,7 +146,8 @@ def start_prompt(session, config):
 @click.option(
     "-c", "--context", "context", type=click.File("r"), help="Path to a context file"
 )
-def main(context) -> None:
+@click.option("-k", "--key", "api_key", help="Set the API Key")
+def main(context, api_key) -> None:
     history = FileHistory(".history")
     session = PromptSession(history=history)
 
@@ -160,7 +157,17 @@ def main(context) -> None:
         console.print("Configuration file not found", style="red bold")
         sys.exit(1)
 
-    #Run the display expense function when exiting the script
+    # Order of precedence for API Key configuration:
+    # Command line option > Environment variable > Configuration file
+
+    # If the environment variable is set overwrite the configuration
+    if os.environ.get(ENV_VAR):
+        config["api-key"] = os.environ[ENV_VAR].strip()
+    # If the --key command line argument is used overwrite the configuration
+    if api_key:
+        config["api-key"] = api_key.strip()
+
+    # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
 
     console.print("ChatGPT CLI", style="bold")
