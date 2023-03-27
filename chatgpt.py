@@ -10,6 +10,7 @@ import yaml
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
+from rich.markup import escape
 
 CONFIG_FILE = "config.yaml"
 BASE_ENDPOINT = "https://api.openai.com/v1"
@@ -110,7 +111,7 @@ def start_prompt(session, config):
         message_response = response["choices"][0]["message"]
         usage_response = response["usage"]
 
-        console.print(message_response["content"].strip())
+        console.print(escape(message_response["content"].strip()))
 
         # Update message history and token counters
         messages.append(message_response)
