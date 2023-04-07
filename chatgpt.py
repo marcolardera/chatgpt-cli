@@ -7,12 +7,15 @@ import requests
 import sys
 import yaml
 
+from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markup import escape
 
-CONFIG_FILE = "config.yaml"
+WORKDIR = Path(__file__).parent
+CONFIG_FILE = Path(WORKDIR, "config.yaml")
+HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 
@@ -149,7 +152,7 @@ def start_prompt(session, config):
 )
 @click.option("-k", "--key", "api_key", help="Set the API Key")
 def main(context, api_key) -> None:
-    history = FileHistory(".history")
+    history = FileHistory(HISTORY_FILE)
     session = PromptSession(history=history)
 
     try:
