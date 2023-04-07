@@ -14,8 +14,8 @@ from rich.console import Console
 from rich.markup import escape
 
 WORKDIR = Path(__file__).parent
-CONFIG_FILE = WORKDIR / "config.yaml"
-HISTORY_FILE = WORKDIR / ".history"
+CONFIG_FILE = Path(WORKDIR, "config.yaml")
+HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 
