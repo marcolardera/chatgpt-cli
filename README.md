@@ -64,7 +64,7 @@ Typical use cases for this feature are:
 - Giving the model some text and ask to rephrase with a different style (more formal, more friendly, etc)
 - Asking for a translation of some text
 
-# Markdown rendering
+## Markdown rendering
 
 ChatGPT CLI automatically renders Markdown responses from the model, including code blocks, with appropriate formatting and syntax highlighting. **The only limitation at the moment is that it is not able to handle tables or other non-standard Markdown features.**
 
