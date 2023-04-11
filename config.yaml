@@ -1,2 +1,3 @@
 api-key: "INSERT API KEY HERE"
 model: "gpt-3.5-turbo"
+markdown: true

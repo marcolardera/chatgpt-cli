@@ -11,7 +11,7 @@ from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
-from rich.markup import escape
+from rich.markdown import Markdown
 
 WORKDIR = Path(__file__).parent
 CONFIG_FILE = Path(WORKDIR, "config.yaml")
@@ -46,6 +46,14 @@ def load_config(config_file: str) -> dict:
     return config
 
 
+def add_markdown_system_message() -> None:
+    """
+    Try to force ChatGPT to always respond with well formatted code blocks if markdown is enabled.
+    """
+    instruction = "Always use code blocks with the appropriate language tags"
+    messages.append({"role": "system", "content": instruction})
+
+
 def calculate_expense(
     prompt_tokens: int,
     completion_tokens: int,
@@ -71,7 +79,9 @@ def display_expense(model) -> None:
         PRICING_RATE[model]["prompt"],
         PRICING_RATE[model]["completion"],
     )
-    console.print(f"Total tokens used: [green bold]{prompt_tokens + completion_tokens}")
+    console.print(
+        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}"
+    )
     console.print(f"Estimated expense: [green bold]${total_expense}")
 
 
@@ -114,7 +124,12 @@ def start_prompt(session, config):
         message_response = response["choices"][0]["message"]
         usage_response = response["usage"]
 
-        console.print(escape(message_response["content"].strip()))
+        console.line()
+        if config["markdown"]:
+            console.print(Markdown(message_response["content"].strip()))
+        else:
+            console.print(message_response["content"].strip())
+        console.line()
 
         # Update message history and token counters
         messages.append(message_response)
@@ -177,10 +192,16 @@ def main(context, api_key) -> None:
     console.print("ChatGPT CLI", style="bold")
     console.print(f"Model in use: [green bold]{config['model']}")
 
+    # Add the system message for code blocks in case markdown is enabled in the config file
+    if config["markdown"]:
+        add_markdown_system_message()
+
     # Context from the command line option
     if context:
         console.print(f"Context file: [green bold]{context.name}")
         messages.append({"role": "system", "content": context.read().strip()})
+
+    console.rule()
 
     while True:
         try:
