@@ -34,6 +34,29 @@ prompt_tokens = 0
 completion_tokens = 0
 # Initialize the console
 console = Console()
+# Models
+models = [ "gpt-3.5-turbo", "gpt-4", "gpt-4-32k"]
+usingModel = "gpt-3.5-turbo"
+
+
+def choose_model():
+    global usingModel
+    console.print("Choose a model to use:")
+    for i in range(len(models)):
+        console.print(f"[{i}] {models[i]}")
+    console.print(f"[{len(models)}] Cancel")
+    while True:
+        try:
+            choice = int(input("Enter a number: "))
+            if choice == len(models):
+                sys.exit(0)
+            elif choice < 0 or choice > len(models):
+                console.print("Invalid choice", style="red bold")
+            else:
+                usingModel = models[choice]
+                break
+        except ValueError:
+            console.print("Invalid choice", style="red bold")
 
 
 def load_config(config_file: str) -> dict:
@@ -98,12 +121,14 @@ def start_prompt(session, config):
 
     if message.lower() == "/q":
         raise EOFError
+    if message.lower() == "exit":
+        raise EOFError
     if message.lower() == "":
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
 
-    body = {"model": config["model"], "messages": messages}
+    body = {"model": usingModel, "messages": messages}
 
     try:
         r = requests.post(
@@ -186,11 +211,24 @@ def main(context, api_key) -> None:
     if api_key:
         config["api-key"] = api_key.strip()
 
-    # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=config["model"])
+    console.print("""
+ ██████╗██╗  ██╗ █████╗ ████████╗ ██████╗ ██████╗ ████████╗    ██████╗██╗     ██╗
+██╔════╝██║  ██║██╔══██╗╚══██╔══╝██╔════╝ ██╔══██╗╚══██╔══╝   ██╔════╝██║     ██║
+██║     ███████║███████║   ██║   ██║  ███╗██████╔╝   ██║█████╗██║     ██║     ██║
+██║     ██╔══██║██╔══██║   ██║   ██║   ██║██╔═══╝    ██║╚════╝██║     ██║     ██║
+╚██████╗██║  ██║██║  ██║   ██║   ╚██████╔╝██║        ██║      ╚██████╗███████╗██║
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝        ╚═╝       ╚═════╝╚══════╝╚═╝
+                                                                                 
+""")
 
-    console.print("ChatGPT CLI", style="bold")
-    console.print(f"Model in use: [green bold]{config['model']}")
+    # Running Model Selection
+    choose_model()
+
+    # Run the display expense function when exiting the script
+    atexit.register(display_expense, model=usingModel)
+
+    # Selected model
+    console.print(f"Model in use: [green bold]{usingModel}")
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
