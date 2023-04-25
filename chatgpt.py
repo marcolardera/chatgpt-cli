@@ -69,7 +69,7 @@ def calculate_expense(
     return round(expense, 6)
 
 
-def display_expense(model) -> None:
+def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
@@ -85,7 +85,11 @@ def display_expense(model) -> None:
     console.print(f"Estimated expense: [green bold]${total_expense}")
 
 
-def start_prompt(session, config):
+def start_prompt(session: PromptSession, config: dict) -> None:
+    """
+    Ask the user for input, build the request and perform it
+    """
+
     # TODO: Refactor to avoid a global variables
     global prompt_tokens, completion_tokens
 
@@ -103,7 +107,15 @@ def start_prompt(session, config):
 
     messages.append({"role": "user", "content": message})
 
-    body = {"model": config["model"], "messages": messages}
+    # Base body parameters
+    body = {
+        "model": config["model"],
+        "temperature": config["temperature"],
+        "messages": messages,
+    }
+    # Optional parameter
+    if "max_tokens" in config:
+        body["max_tokens"] = config["max_tokens"]
 
     try:
         r = requests.post(
