@@ -56,7 +56,9 @@ Use the `--context <FILE PATH>` command line option (or `-c` as a short version)
 
 `python chatgpt.py --context notes.txt`
 
-Both absolute and relative paths are accepted.
+Both absolute and relative paths are accepted. Note that this option can be specified multiple times to give multiple files for context. Example:
+
+`python chatgpt.py --context notes-from-thursday.txt --context notes-from-friday.txt`
 
 Typical use cases for this feature are:
 

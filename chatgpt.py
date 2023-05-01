@@ -175,7 +175,8 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 
 @click.command()
 @click.option(
-    "-c", "--context", "context", type=click.File("r"), help="Path to a context file"
+    "-c", "--context", "context", type=click.File("r"), help="Path to a context file",
+    multiple=True
 )
 @click.option("-k", "--key", "api_key", help="Set the API Key")
 def main(context, api_key) -> None:
@@ -210,8 +211,9 @@ def main(context, api_key) -> None:
 
     # Context from the command line option
     if context:
-        console.print(f"Context file: [green bold]{context.name}")
-        messages.append({"role": "system", "content": context.read().strip()})
+        for c in context:
+            console.print(f"Context file: [green bold]{c.name}")
+            messages.append({"role": "system", "content": c.read().strip()})
 
     console.rule()
 
