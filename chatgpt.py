@@ -179,7 +179,8 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     multiple=True
 )
 @click.option("-k", "--key", "api_key", help="Set the API Key")
-def main(context, api_key) -> None:
+@click.option("-m", "--model", "model", help="Set the model")
+def main(context, api_key, model) -> None:
     history = FileHistory(HISTORY_FILE)
     session = PromptSession(history=history)
 
@@ -198,6 +199,9 @@ def main(context, api_key) -> None:
     # If the --key command line argument is used overwrite the configuration
     if api_key:
         config["api-key"] = api_key.strip()
+    # If the --model command line argument is used overwrite the configuration
+    if model:
+        config["model"] = model.strip()
 
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
