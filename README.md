@@ -68,6 +68,6 @@ Typical use cases for this feature are:
 
 ## Markdown rendering
 
-ChatGPT CLI automatically renders Markdown responses from the model, including code blocks, with appropriate formatting and syntax highlighting. **The only limitation at the moment is that it is not able to handle tables or other non-standard Markdown features.**
+ChatGPT CLI automatically renders Markdown responses from the model, including code blocks, with appropriate formatting and syntax highlighting. **Update (31/05/2023):** Now tables are also rendered correctly, thanks to the new 13.4.0 release of Rich.
 
 Change the `markdown` parameter from `true` to `false` in the `config.yaml` in order to disable this feature and display responses in plain text.
