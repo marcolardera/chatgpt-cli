@@ -6,6 +6,8 @@ import os
 import requests
 import sys
 import yaml
+import time
+import json
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -145,6 +147,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 
         # Update message history and token counters
         messages.append(message_response)
+        with open(".chatgpt-session-"+str(int(time.time()))+".json", "w") as f: json.dump({"model":config["model"],"messages":messages},f)
         prompt_tokens += usage_response["prompt_tokens"]
         completion_tokens += usage_response["completion_tokens"]
 
