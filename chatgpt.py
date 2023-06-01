@@ -182,7 +182,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 @click.option("-m", "--model", "model", help="Set the model")
 def main(context, api_key, model) -> None:
     history = FileHistory(HISTORY_FILE)
-    session = PromptSession(history=history)
+    session = PromptSession(history=history, multiline=True)
 
     try:
         config = load_config(CONFIG_FILE)
