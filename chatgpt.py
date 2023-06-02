@@ -2,10 +2,12 @@
 
 import atexit
 import click
+import datetime
 import os
 import requests
 import sys
 import yaml
+import json
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -18,6 +20,8 @@ CONFIG_FILE = Path(WORKDIR, "config.yaml")
 HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
+SAVE_FOLDER="session-history"
+SAVE_FILE=".chatgpt-session-"+ datetime.datetime.now().strftime("%Y%m%d") +".json"
 
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
@@ -45,6 +49,12 @@ def load_config(config_file: str) -> dict:
 
     return config
 
+def create_save_folder() -> None:
+    """
+    Create the session history folder if not exists
+    """
+    if not os.path.exists(SAVE_FOLDER):
+        os.mkdir(SAVE_FOLDER)
 
 def add_markdown_system_message() -> None:
     """
@@ -145,6 +155,8 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 
         # Update message history and token counters
         messages.append(message_response)
+        with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
+            json.dump({"model":config["model"],"messages":messages}, f)
         prompt_tokens += usage_response["prompt_tokens"]
         completion_tokens += usage_response["completion_tokens"]
 
@@ -189,6 +201,8 @@ def main(context, api_key, model) -> None:
     except FileNotFoundError:
         console.print("Configuration file not found", style="red bold")
         sys.exit(1)
+        
+    create_save_folder()
 
     # Order of precedence for API Key configuration:
     # Command line option > Environment variable > Configuration file
