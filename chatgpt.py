@@ -21,7 +21,7 @@ HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 SAVE_FOLDER = "session-history"
-SAVE_FILE = "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d") + ".json"
+SAVE_FILE = "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
