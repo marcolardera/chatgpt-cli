@@ -20,6 +20,7 @@ CONFIG_FILE = Path(WORKDIR, "config.yaml")
 HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
+CURRENT_SAVE_FILE=".chatgpt-session-"+str(int(time.time()))+".json"
 
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
@@ -147,7 +148,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 
         # Update message history and token counters
         messages.append(message_response)
-        with open(".chatgpt-session-"+str(int(time.time()))+".json", "w") as f: json.dump({"model":config["model"],"messages":messages},f)
+        with open(CURRENT_SAVE_FILE, "w") as f: json.dump({"model":config["model"],"messages":messages},f)
         prompt_tokens += usage_response["prompt_tokens"]
         completion_tokens += usage_response["completion_tokens"]
 
