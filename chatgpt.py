@@ -198,9 +198,15 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 )
 @click.option("-k", "--key", "api_key", help="Set the API Key")
 @click.option("-m", "--model", "model", help="Set the model")
-def main(context, api_key, model) -> None:
+@click.option(
+    "-ml", "--multiline", "multiline", is_flag=True, help="Use the multiline input mode"
+)
+def main(context, api_key, model, multiline) -> None:
     history = FileHistory(HISTORY_FILE)
-    session = PromptSession(history=history)
+    if multiline:
+        session = PromptSession(history=history, multiline=True)
+    else:
+        session = PromptSession(history=history)
 
     try:
         config = load_config(CONFIG_FILE)
