@@ -50,9 +50,9 @@ Then just chat! The number next to the prompt is the [tokens](https://platform.o
 
 Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session, based on the specific model in use.
 
-If you need to prompt with line breaks, such as Python code, you use `--multiline` and sending the prompt becomes `Alt+Enter`.
+## Multiline input
 
-     ./chatgpt.py  --multiline
+Add the `--multiline` (or `-ml`) flag in order to toggle multi-line input mode. In this mode use `Alt+Enter` or `Esc+Enter` to submit messages.
 
 ## Context
 
