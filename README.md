@@ -36,7 +36,19 @@ If more then one API Key is provided, ChatGPT CLI follows this priority order: *
 
 ## Models
 
-ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. On March 14, 2023 OpenAI released the new `gpt-4` and `gpt-4-32k` models, only available to a limited amount of users for now. In order to use them, edit the `model` parameter in the *config.yaml* file. 
+ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model` parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available options:
+
+|Name|Pricing (input token)|Pricing(output token)|
+|---|---|---|
+|`gpt-3.5-turbo`|0.0015|0.002|
+|`gpt-3.5-turbo-0613`|0.0015|0.002|
+|`gpt-3.5-turbo-16k`|0.003|0.004|
+|`gpt-4`|0.03|0.06|
+|`gpt-4-0613`|0.03|0.06|
+|`gpt-4-32k`|0.06|0.12|
+|`gpt-4-32k-0613`|0.06|0.12|
+
+Pricing is calculated as $/1000 tokens. Note that the `gpt-4` family is only available to a limited amount of users (join the [waitlist](https://openai.com/waitlist/gpt-4-api) in order to get access).
 
 Check [this page](https://platform.openai.com/docs/models) for the technical details of each model.
 
