@@ -21,7 +21,9 @@ HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 SAVE_FOLDER = "session-history"
-SAVE_FILE = "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
+SAVE_FILE = (
+    "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
+)
 
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.0015, "completion": 0.002},
@@ -30,7 +32,7 @@ PRICING_RATE = {
     "gpt-4": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
-    "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12}
+    "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
 }
 
 
@@ -64,9 +66,9 @@ def create_save_folder() -> None:
 
 def add_markdown_system_message() -> None:
     """
-    Try to force ChatGPT to always respond with well formatted code blocks if markdown is enabled.
+    Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
     """
-    instruction = "Always use code blocks with the appropriate language tags"
+    instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
     messages.append({"role": "system", "content": instruction})
 
 
