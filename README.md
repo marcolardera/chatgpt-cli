@@ -48,7 +48,7 @@ ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to us
 |`gpt-4-32k`|0.06|0.12|
 |`gpt-4-32k-0613`|0.06|0.12|
 
-Pricing is calculated as $/1000 tokens. Note that the `gpt-4` family is only available to a limited amount of users (join the [waitlist](https://openai.com/waitlist/gpt-4-api) in order to get access).
+Pricing is calculated as $/1000 tokens.
 
 Check [this page](https://platform.openai.com/docs/models) for the technical details of each model.
 
