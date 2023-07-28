@@ -106,7 +106,11 @@ def calculate_expense(
     expense = ((prompt_tokens / 1000) * prompt_pricing) + (
         (completion_tokens / 1000) * completion_pricing
     )
-    return round(expense, 6)
+
+    # Format to display in decimal notation rounded to 6 decimals
+    expense = "{:.6f}".format(round(expense, 6))
+
+    return expense 
 
 
 def display_expense(model: str) -> None:
