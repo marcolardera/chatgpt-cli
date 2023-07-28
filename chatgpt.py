@@ -56,6 +56,28 @@ def load_config(config_file: str) -> dict:
     return config
 
 
+def load_history_data(history_file: str) -> dict:
+    """
+    Read a session history json file and return its content
+    """
+    with open(history_file) as file:
+        content = json.loads(file.read())
+
+    return content
+
+
+def get_last_save_file() -> str:
+    """
+    Return the timestamp of the last saved session
+    """
+    files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
+    if files:
+        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
+        ts.sort()
+        return ts[-1]
+    return None
+
+
 def create_save_folder() -> None:
     """
     Create the session history folder if not exists
@@ -163,10 +185,19 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 
         # Update message history and token counters
         messages.append(message_response)
-        with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
-            json.dump({"model": config["model"], "messages": messages}, f, indent=4)
         prompt_tokens += usage_response["prompt_tokens"]
         completion_tokens += usage_response["completion_tokens"]
+        with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
+            json.dump(
+                {
+                    "model": config["model"],
+                    "messages": messages,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                },
+                f,
+                indent=4,
+            )
 
     elif r.status_code == 400:
         response = r.json()
@@ -207,8 +238,15 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 @click.option(
     "-ml", "--multiline", "multiline", is_flag=True, help="Use the multiline input mode"
 )
-def main(context, api_key, model, multiline) -> None:
+@click.option(
+    "-r",
+    "--restore",
+    "restore",
+    help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
+)
+def main(context, api_key, model, multiline, restore) -> None:
     history = FileHistory(HISTORY_FILE)
+
     if multiline:
         session = PromptSession(history=history, multiline=True)
     else:
@@ -250,6 +288,26 @@ def main(context, api_key, model, multiline) -> None:
         for c in context:
             console.print(f"Context file: [green bold]{c.name}")
             messages.append({"role": "system", "content": c.read().strip()})
+
+    # Restore a previous session
+    if restore:
+        if restore == "last":
+            last_session = get_last_save_file()
+            restore_file = f"chatgpt-session-{last_session}.json"
+        else:
+            restore_file = f"chatgpt-session-{restore}.json"
+        try:
+            global prompt_tokens, completion_tokens
+            # If this feature is used --context is cleared
+            messages.clear()
+            history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
+            for message in history_data["messages"]:
+                messages.append(message)
+            prompt_tokens += history_data["prompt_tokens"]
+            completion_tokens += history_data["completion_tokens"]
+            console.print(f"Restored session: [bold green]{restore}")
+        except FileNotFoundError:
+            console.print(f"[red bold]File {restore_file} not found")
 
     console.rule()
 

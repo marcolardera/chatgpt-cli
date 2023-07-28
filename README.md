@@ -87,3 +87,17 @@ Typical use cases for this feature are:
 ChatGPT CLI automatically renders Markdown responses from the model, including code blocks, with appropriate formatting and syntax highlighting. **Update (31/05/2023):** Now tables are also rendered correctly, thanks to the new 13.4.0 release of Rich.
 
 Change the `markdown` parameter from `true` to `false` in the `config.yaml` in order to disable this feature and display responses in plain text.
+
+## Restoring previous sessions
+
+ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
+
+`python chatgpt.py --restore 20230728-162302` restores the session from the `session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
+
+It is also possible to use the special value `last`:
+
+`python chatgpt.py --restore last`
+
+In this case it restores the last chat session, without specifying the timestamp.
+
+Note that, if `--restore` is set, it overwrites any `--context` option.
