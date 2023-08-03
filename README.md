@@ -88,7 +88,7 @@ Change the `markdown` parameter from `true` to `false` in the `config.yaml` in o
 
 ## Restoring previous sessions
 
-ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
+ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder in your home directory. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
 
 `python chatgpt.py --restore 20230728-162302` restores the session from the `session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
 
