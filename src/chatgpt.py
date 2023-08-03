@@ -16,12 +16,11 @@ from rich.console import Console
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
 
-WORKDIR = os.path.dirname(__file__)
 CONFIG_FILE = Path(xdg_config_home(), "chatgpt-cli", "config.yaml")
-HISTORY_FILE = Path(WORKDIR, ".history")
+HISTORY_FILE = Path(Path.home(), ".chatgpt_history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
-SAVE_FOLDER = "session-history"
+SAVE_FOLDER = Path(Path.home(), "chatgpt-cli-history")
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
