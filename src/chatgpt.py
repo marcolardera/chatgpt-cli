@@ -15,7 +15,7 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 
-WORKDIR = Path(__file__).parent
+WORKDIR = Path(__file__).parent.parent
 CONFIG_FILE = Path(WORKDIR, "config.yaml")
 HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"

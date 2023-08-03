@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chaptgpt-cli"
+version = "0.1.0"
+authors = [
+    { name = "Marco Lardera", email = "larderamarco@hotmail.com" }
+]
+description = "Simple yet effective command line client for chatting with ChatGPT using the official API." 
+readme = "README.md"
+
+requires-python = ">=3.5"
