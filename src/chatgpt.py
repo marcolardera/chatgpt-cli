@@ -5,6 +5,7 @@ import click
 import datetime
 import os
 import requests
+import shutil
 import sys
 import yaml
 import json
@@ -14,9 +15,10 @@ from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
+from xdg_base_dirs import xdg_config_home
 
 WORKDIR = Path(__file__).parent.parent
-CONFIG_FILE = Path(WORKDIR, "config.yaml")
+CONFIG_FILE = Path(xdg_config_home(), "chatgpt-cli", "config.yaml")
 HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
@@ -50,6 +52,11 @@ def load_config(config_file: str) -> dict:
     """
     Read a YAML config file and returns it's content as a dictionary
     """
+    print('Config file: ', config_file)
+    if not Path(config_file).exists():
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(WORKDIR, "config_template.yaml"), config_file)
+
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
