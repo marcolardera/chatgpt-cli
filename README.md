@@ -14,17 +14,11 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 ## Installation and essential configuration
 
-You need Python and Git installed on your system.
+You need Python, pip and Git installed on your system. The installation is then done simply with
 
-Clone the repository:
-
-`git clone https://github.com/marcolardera/chatgpt-cli.git`
-
-`cd chatgpt-cli`
-
-Install the dependencies:
-
-`pip install -r requirements.txt`
+```console
+pip install git+https://github.com/marcolardera/chatgpt-cli
+```
 
 After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
 
@@ -33,6 +27,10 @@ After that, you need to configure your API Key. There are three alternative ways
 - Use the command line option `--key` or `-k`
 
 If more then one API Key is provided, ChatGPT CLI follows this priority order: *Command line option > Environment variable > Configuration file*
+
+### Configuration file
+
+The configuration file *config.yaml* can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
 
 ## Models
 
