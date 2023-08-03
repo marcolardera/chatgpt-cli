@@ -5,7 +5,6 @@ import click
 import datetime
 import os
 import requests
-import shutil
 import sys
 import yaml
 import json
@@ -17,7 +16,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
 
-WORKDIR = Path(__file__).parent.parent
+WORKDIR = os.path.dirname(__file__)
 CONFIG_FILE = Path(xdg_config_home(), "chatgpt-cli", "config.yaml")
 HISTORY_FILE = Path(WORKDIR, ".history")
 BASE_ENDPOINT = "https://api.openai.com/v1"
@@ -55,7 +54,14 @@ def load_config(config_file: str) -> dict:
     print('Config file: ', config_file)
     if not Path(config_file).exists():
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(Path(WORKDIR, "config_template.yaml"), config_file)
+        with open(config_file, "w") as file:
+            file.write(
+                "api-key: \"INSERT API KEY HERE\"\n" +
+                "model: \"gpt-3.5-turbo\"\n"
+                "temperature: 1\n"
+                "#max_tokens: 500\n"
+                "markdown: true\n"
+                )
 
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)

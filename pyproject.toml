@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = ["setuptools>=42", "xdg-base-dirs~=6.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chaptgpt-cli"
+name = "chatgpt-cli"
 version = "0.1.0"
 authors = [
     { name = "Marco Lardera", email = "larderamarco@hotmail.com" }
