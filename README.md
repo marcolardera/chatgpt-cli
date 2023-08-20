@@ -17,7 +17,7 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 You need Python, pip and Git installed on your system. The installation is then done simply with
 
 ```console
-pip install git+https://github.com/marcolardera/chatgpt-cli
+pip install git+https://github.com/christian-oudard/chatgpt-cli
 ```
 
 After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
