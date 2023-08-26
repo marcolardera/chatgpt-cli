@@ -14,15 +14,15 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 ## Installation and essential configuration
 
-You need Python, pip and Git installed on your system. The installation is then done simply with
+You need Python, Pip and Git installed on your system. The installation is then done simply with
 
 ```console
-pip install git+https://github.com/christian-oudard/chatgpt-cli
+pip install git+https://github.com/marcolardera/chatgpt-cli
 ```
 
 After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
 
-- Edit the `api-key` parameter in the *config.yaml* file
+- Edit the `api-key` parameter in the *config.yaml* file (see paragraph below)
 - Set the environment variable `OPENAI_API_KEY` (Check your operating system's documentation on how to do this)
 - Use the command line option `--key` or `-k`
 
@@ -31,6 +31,10 @@ If more then one API Key is provided, ChatGPT CLI follows this priority order: *
 ### Configuration file
 
 The configuration file *config.yaml* can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
+
+On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). On Linux, if not set, the default should be the `$HOME/.config` folder.
+
+On the first execution of the script, a template of the config file is automatically created.
 
 ## Models
 
@@ -52,13 +56,15 @@ Check [this page](https://platform.openai.com/docs/models) for the technical det
 
 ## Basic usage
 
-Launch the *chatgpt.py* script (depending on your environment you may need to use the `python3` command instead of `python`):
+Launch the script typing in your terminal:
 
-`python chatgpt.py`
+`chatgpt-cli`
 
 Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
 Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session, based on the specific model in use.
+
+For displaying all the available commands check the help with `chatgpt-cli --help`
 
 ## Multiline input
 
@@ -88,9 +94,9 @@ Change the `markdown` parameter from `true` to `false` in the `config.yaml` in o
 
 ## Restoring previous sessions
 
-ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder in your home directory. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
+ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder inside the $XDG_CONFIG_HOME discussed in a previous paragraph. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
 
-`python chatgpt.py --restore 20230728-162302` restores the session from the `session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
+`python chatgpt.py --restore 20230728-162302` restores the session from the `$XDG_CONFIG_HOME/chatgpt-cli/session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
 
 It is also possible to use the special value `last`:
 

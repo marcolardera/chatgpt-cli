@@ -16,10 +16,10 @@ from rich.console import Console
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
 
-BASE = Path(xdg_config_home(), 'chatgpt-cli')
-CONFIG_FILE = BASE / 'config.yaml'
-HISTORY_FILE = BASE / 'history'
-SAVE_FOLDER = BASE / 'saves'
+BASE = Path(xdg_config_home(), "chatgpt-cli")
+CONFIG_FILE = BASE / "config.yaml"
+HISTORY_FILE = BASE / "history"
+SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
@@ -51,17 +51,15 @@ def load_config(config_file: str) -> dict:
     """
     Read a YAML config file and returns it's content as a dictionary
     """
-    print('Config file: ', config_file)
     if not Path(config_file).exists():
         config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w") as file:
             file.write(
-                "api-key: \"INSERT API KEY HERE\"\n" +
-                "model: \"gpt-3.5-turbo\"\n"
+                'api-key: "INSERT API KEY HERE"\n' + 'model: "gpt-3.5-turbo"\n'
                 "temperature: 1\n"
                 "#max_tokens: 500\n"
                 "markdown: true\n"
-                )
+            )
 
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
@@ -123,7 +121,7 @@ def calculate_expense(
     # Format to display in decimal notation rounded to 6 decimals
     expense = "{:.6f}".format(round(expense, 6))
 
-    return expense 
+    return expense
 
 
 def display_expense(model: str) -> None:
