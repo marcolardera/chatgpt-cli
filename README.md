@@ -14,7 +14,15 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 ## Installation and essential configuration
 
-You need Python (at least version 3.10), Pip and Git installed on your system. The installation is then done simply with
+You need Python (at least version 3.10), Pip and Git installed on your system.
+
+First update Pip (having an older version can cause troubles on some systems):
+
+```console
+pip install -U pip
+```
+
+Then, the installation is done simply with a single command:
 
 ```console
 pip install git+https://github.com/marcolardera/chatgpt-cli
@@ -32,9 +40,9 @@ If more then one API Key is provided, ChatGPT CLI follows this priority order: *
 
 The configuration file *config.yaml* can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
 
-On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). On Linux, if not set, the default should be the `$HOME/.config` folder.
+On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). The default, if the variable is not set, should be the `~/.config` folder.
 
-On the first execution of the script, a template of the config file is automatically created.
+On the first execution of the script, a [template](config.yaml) of the config file is automatically created.
 
 ## Models
 

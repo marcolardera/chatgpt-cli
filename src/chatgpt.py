@@ -60,6 +60,7 @@ def load_config(config_file: str) -> dict:
                 "#max_tokens: 500\n"
                 "markdown: true\n"
             )
+        console.print(f"New config file initialized: [green bold]{config_file}")
 
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
@@ -260,6 +261,8 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
 )
 def main(context, api_key, model, multiline, restore) -> None:
+    console.print("ChatGPT CLI", style="bold")
+
     history = FileHistory(HISTORY_FILE)
 
     if multiline:
@@ -291,7 +294,6 @@ def main(context, api_key, model, multiline, restore) -> None:
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
 
-    console.print("ChatGPT CLI", style="bold")
     console.print(f"Model in use: [green bold]{config['model']}")
 
     # Add the system message for code blocks in case markdown is enabled in the config file
