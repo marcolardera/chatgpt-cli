@@ -82,11 +82,11 @@ Add the `--multiline` (or `-ml`) flag in order to toggle multi-line input mode. 
 
 Use the `--context <FILE PATH>` command line option (or `-c` as a short version) in order to provide the model an initial context (technically a *system* message for ChatGPT). For example:
 
-`python chatgpt.py --context notes.txt`
+`chatgpt-cli --context notes.txt`
 
 Both absolute and relative paths are accepted. Note that this option can be specified multiple times to give multiple files for context. Example:
 
-`python chatgpt.py --context notes-from-thursday.txt --context notes-from-friday.txt`
+`chatgpt-cli --context notes-from-thursday.txt --context notes-from-friday.txt`
 
 Typical use cases for this feature are:
 
@@ -104,11 +104,11 @@ Change the `markdown` parameter from `true` to `false` in the `config.yaml` in o
 
 ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder inside the $XDG_CONFIG_HOME discussed in a previous paragraph. In order to restore a session the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
 
-`python chatgpt.py --restore 20230728-162302` restores the session from the `$XDG_CONFIG_HOME/chatgpt-cli/session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
+`chatgpt-cli --restore 20230728-162302` restores the session from the `$XDG_CONFIG_HOME/chatgpt-cli/session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from that point.
 
 It is also possible to use the special value `last`:
 
-`python chatgpt.py --restore last`
+`chatgpt-cli --restore last`
 
 In this case it restores the last chat session, without specifying the timestamp.
 
