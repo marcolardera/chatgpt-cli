@@ -14,7 +14,7 @@ You may also need to add a payment method, clicking on *Billing --> Payment meth
 
 ## Installation and essential configuration
 
-You need Python, Pip and Git installed on your system. The installation is then done simply with
+You need Python (at least version 3.10), Pip and Git installed on your system. The installation is then done simply with
 
 ```console
 pip install git+https://github.com/marcolardera/chatgpt-cli
