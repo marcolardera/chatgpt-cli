@@ -233,6 +233,11 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         console.print("Rate limit or maximum monthly limit exceeded", style="bold red")
         messages.pop()
         raise KeyboardInterrupt
+    
+    elif r.status_code == 502 or r.status_code == 503:
+        console.print("The server seems to be overloaded, try again", style="bold red")
+        messages.pop()
+        raise KeyboardInterrupt
 
     else:
         console.print(f"Unknown error, status code {r.status_code}", style="bold red")
