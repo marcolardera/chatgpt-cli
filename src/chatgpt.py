@@ -154,7 +154,12 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         "Authorization": f"Bearer {config['api-key']}",
     }
 
-    message = session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
+    message = ""
+
+    if config["non_interactive"]:
+        message = sys.stdin.read()
+    else: 
+        session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
 
     if message.lower() == "/q":
         raise EOFError
@@ -215,6 +220,10 @@ def start_prompt(session: PromptSession, config: dict) -> None:
                 indent=4,
             )
 
+        if config["non_interactive"]:
+            # In non-interactive mode there is no looping back for a second prompt, you're done.
+            raise EOFError
+
     elif r.status_code == 400:
         response = r.json()
         if "error" in response:
@@ -265,7 +274,9 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     "restore",
     help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
 )
-def main(context, api_key, model, multiline, restore) -> None:
+@click.option("-c", "--non-interactive", "non_interactive", is_flag=True, help="Non interactive/command mode for piping")
+
+def main(context, api_key, model, multiline, restore, non_interactive) -> None:
     console.print("ChatGPT CLI", style="bold")
 
     history = FileHistory(HISTORY_FILE)
@@ -295,6 +306,8 @@ def main(context, api_key, model, multiline, restore) -> None:
     # If the --model command line argument is used overwrite the configuration
     if model:
         config["model"] = model.strip()
+
+    config["non_interactive"] = non_interactive
 
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
