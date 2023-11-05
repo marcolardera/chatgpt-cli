@@ -159,7 +159,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     if config["non_interactive"]:
         message = sys.stdin.read()
     else: 
-        session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
+        message = session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
 
     if message.lower() == "/q":
         raise EOFError
