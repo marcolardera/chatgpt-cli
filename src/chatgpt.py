@@ -60,7 +60,7 @@ def load_config(config_file: str) -> dict:
                 "#max_tokens: 500\n"
                 "markdown: true\n"
             )
-        console.print(f"New config file initialized: [green bold]{config_file}")
+        # console.print(f"New config file initialized: [green bold]{config_file}")
 
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
@@ -154,7 +154,12 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         "Authorization": f"Bearer {config['api-key']}",
     }
 
-    message = session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
+    message = ""
+
+    if config["non_interactive"]:
+        message = sys.stdin.read()
+    else: 
+        message = session.prompt(HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"))
 
     if message.lower() == "/q":
         raise EOFError
@@ -215,6 +220,10 @@ def start_prompt(session: PromptSession, config: dict) -> None:
                 indent=4,
             )
 
+        if config["non_interactive"]:
+            # In non-interactive mode there is no looping back for a second prompt, you're done.
+            raise EOFError
+
     elif r.status_code == 400:
         response = r.json()
         if "error" in response:
@@ -265,8 +274,10 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     "restore",
     help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
 )
-def main(context, api_key, model, multiline, restore) -> None:
-    console.print("ChatGPT CLI", style="bold")
+@click.option("-n", "--non-interactive", "non_interactive", is_flag=True, help="Non interactive/command mode for piping")
+
+def main(context, api_key, model, multiline, restore, non_interactive) -> None:
+    if not non_interactive: console.print("ChatGPT CLI", style="bold")
 
     history = FileHistory(HISTORY_FILE)
 
@@ -296,10 +307,12 @@ def main(context, api_key, model, multiline, restore) -> None:
     if model:
         config["model"] = model.strip()
 
-    # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=config["model"])
+    config["non_interactive"] = non_interactive
 
-    console.print(f"Model in use: [green bold]{config['model']}")
+    # Run the display expense function when exiting the script
+    if not non_interactive: atexit.register(display_expense, model=config["model"])
+
+    if not non_interactive: console.print(f"Model in use: [green bold]{config['model']}")
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
@@ -308,7 +321,7 @@ def main(context, api_key, model, multiline, restore) -> None:
     # Context from the command line option
     if context:
         for c in context:
-            console.print(f"Context file: [green bold]{c.name}")
+            if not non_interactive: console.print(f"Context file: [green bold]{c.name}")
             messages.append({"role": "system", "content": c.read().strip()})
 
     # Restore a previous session
@@ -327,11 +340,11 @@ def main(context, api_key, model, multiline, restore) -> None:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
             completion_tokens += history_data["completion_tokens"]
-            console.print(f"Restored session: [bold green]{restore}")
+            if not non_interactive: console.print(f"Restored session: [bold green]{restore}")
         except FileNotFoundError:
             console.print(f"[red bold]File {restore_file} not found")
 
-    console.rule()
+    if not non_interactive: console.rule()
 
     while True:
         try:
