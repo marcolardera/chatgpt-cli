@@ -121,3 +121,7 @@ ChatGPT CLI can be used in a UNIX pipeline thanks to the `--non-interactive` (or
 `cat example_file.txt | chatgpt-cli -n`
 
 In this case the content of `example_file` is sent directly to ChatGPT and the response is returned on the standard output. This allows to use the tool inside shell scripts.
+
+## Contributing to this project
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md)
