@@ -113,3 +113,11 @@ It is also possible to use the special value `last`:
 In this case it restores the last chat session, without specifying the timestamp.
 
 Note that, if `--restore` is set, it overwrites any `--context` option.
+
+## Piping
+
+ChatGPT CLI can be used in a UNIX pipeline thanks to the `--non-interactive` (or `-n`) mode. Here is an example:
+
+`cat example_file.txt | chatgpt-cli -n`
+
+In this case the content of `example_file` is sent directly to ChatGPT and the response is returned on the standard output. This allows to use the tool inside shell scripts.
