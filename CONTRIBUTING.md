@@ -15,10 +15,9 @@ Check out the repository:
 
 Create and activate a Virtual Environment:
 
-`python3 -m venv venv` or '`python -m venv venv`
+`python3 -m venv venv` or `python -m venv venv`
 
-`source venv/bin/activate` (Linux/MacOS)
-`.\venv\Scripts\activate` (Windows)
+`source venv/bin/activate` (Linux/MacOS) or `.\venv\Scripts\activate` (Windows)
 
 Install the requirements:
 
