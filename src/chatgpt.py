@@ -274,11 +274,10 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     "restore",
     help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
 )
-@click.option("-c", "--non-interactive", "non_interactive", is_flag=True, help="Non interactive/command mode for piping")
-@click.option("-q", "--quiet", "quiet", is_flag=True, help="Quiet mode, minimal or only model output")
+@click.option("-n", "--non-interactive", "non_interactive", is_flag=True, help="Non interactive/command mode for piping")
 
-def main(context, api_key, model, multiline, restore, non_interactive, quiet) -> None:
-    if not quiet: console.print("ChatGPT CLI", style="bold")
+def main(context, api_key, model, multiline, restore, non_interactive) -> None:
+    if not non_interactive: console.print("ChatGPT CLI", style="bold")
 
     history = FileHistory(HISTORY_FILE)
 
@@ -311,9 +310,9 @@ def main(context, api_key, model, multiline, restore, non_interactive, quiet) ->
     config["non_interactive"] = non_interactive
 
     # Run the display expense function when exiting the script
-    if not quiet: atexit.register(display_expense, model=config["model"])
+    if not non_interactive: atexit.register(display_expense, model=config["model"])
 
-    if not quiet: console.print(f"Model in use: [green bold]{config['model']}")
+    if not non_interactive: console.print(f"Model in use: [green bold]{config['model']}")
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
@@ -322,7 +321,7 @@ def main(context, api_key, model, multiline, restore, non_interactive, quiet) ->
     # Context from the command line option
     if context:
         for c in context:
-            if not quiet: console.print(f"Context file: [green bold]{c.name}")
+            if not non_interactive: console.print(f"Context file: [green bold]{c.name}")
             messages.append({"role": "system", "content": c.read().strip()})
 
     # Restore a previous session
@@ -341,11 +340,11 @@ def main(context, api_key, model, multiline, restore, non_interactive, quiet) ->
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
             completion_tokens += history_data["completion_tokens"]
-            if not quiet: console.print(f"Restored session: [bold green]{restore}")
+            if not non_interactive: console.print(f"Restored session: [bold green]{restore}")
         except FileNotFoundError:
             console.print(f"[red bold]File {restore_file} not found")
 
-    if not quiet: console.rule()
+    if not non_interactive: console.rule()
 
     while True:
         try:
