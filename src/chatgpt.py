@@ -8,6 +8,7 @@ import requests
 import sys
 import yaml
 import json
+import logging
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -15,6 +16,12 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
+
+log = logging.getLogger('chatgpt-cli')
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(message)s')
+ch.setFormatter(formatter)
+log.addHandler(ch)
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -46,7 +53,6 @@ completion_tokens = 0
 # Initialize the console
 console = Console()
 
-
 def load_config(config_file: str) -> dict:
     """
     Read a YAML config file and returns it's content as a dictionary
@@ -60,7 +66,7 @@ def load_config(config_file: str) -> dict:
                 "#max_tokens: 500\n"
                 "markdown: true\n"
             )
-        # console.print(f"New config file initialized: [green bold]{config_file}")
+        log.debug(f"New config file initialized: {config_file}")
 
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
@@ -135,10 +141,10 @@ def display_expense(model: str) -> None:
         PRICING_RATE[model]["prompt"],
         PRICING_RATE[model]["completion"],
     )
-    console.print(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}"
+    log.info(
+        f"\nTotal tokens used: {prompt_tokens + completion_tokens}"
     )
-    console.print(f"Estimated expense: [green bold]${total_expense}")
+    log.info(f"Estimated expense: ${total_expense}")
 
 
 def start_prompt(session: PromptSession, config: dict) -> None:
@@ -185,11 +191,11 @@ def start_prompt(session: PromptSession, config: dict) -> None:
             f"{BASE_ENDPOINT}/chat/completions", headers=headers, json=body
         )
     except requests.ConnectionError:
-        console.print("Connection error, try again...", style="red bold")
+        log.warning("Connection error, try again...")
         messages.pop()
         raise KeyboardInterrupt
     except requests.Timeout:
-        console.print("Connection timed out, try again...", style="red bold")
+        log.warning("Connection timed out, try again...")
         messages.pop()
         raise KeyboardInterrupt
 
@@ -230,29 +236,29 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         response = r.json()
         if "error" in response:
             if response["error"]["code"] == "context_length_exceeded":
-                console.print("Maximum context length exceeded", style="red bold")
+                log.error("Maximum context length exceeded")
                 raise EOFError
                 # TODO: Develop a better strategy to manage this case
-        console.print("Invalid request", style="bold red")
+        log.error("Invalid request")
         raise EOFError
 
     elif r.status_code == 401:
-        console.print("Invalid API Key", style="bold red")
+        log.error("Invalid API Key")
         raise EOFError
 
     elif r.status_code == 429:
-        console.print("Rate limit or maximum monthly limit exceeded", style="bold red")
+        log.error("Rate limit or maximum monthly limit exceeded")
         messages.pop()
         raise KeyboardInterrupt
 
     elif r.status_code == 502 or r.status_code == 503:
-        console.print("The server seems to be overloaded, try again", style="bold red")
+        log.error("The server seems to be overloaded, try again")
         messages.pop()
         raise KeyboardInterrupt
 
     else:
-        console.print(f"Unknown error, status code {r.status_code}", style="bold red")
-        console.print(r.json())
+        log.error(f"Unknown error, status code {r.status_code}")
+        log.error(r.json())
         raise EOFError
 
 
@@ -283,9 +289,23 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     is_flag=True,
     help="Non interactive/command mode for piping",
 )
-def main(context, api_key, model, multiline, restore, non_interactive) -> None:
-    if not non_interactive:
-        console.print("ChatGPT CLI", style="bold")
+@click.option(
+    "-l",
+    "--log-level",
+    "log_level",
+    default="DEBUG",
+    help="Log level of output to use, one of DEBUG, INFO, WARN, ERROR, CRITICAL",
+)
+def main(context, api_key, model, multiline, restore, non_interactive, log_level) -> None:
+    # See: https://docs.python.org/3/howto/logging.html#changing-the-format-of-displayed-messages
+    # Choosing very simple config that's most similar to current output
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % log_level)
+    if non_interactive:
+        numeric_level = logging.WARN
+    log.setLevel(level=numeric_level)
+    log.info("ChatGPT CLI")
 
     history = FileHistory(HISTORY_FILE)
 
@@ -297,7 +317,7 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
     try:
         config = load_config(CONFIG_FILE)
     except FileNotFoundError:
-        console.print("Configuration file not found", style="red bold")
+        log.error("Configuration file not found")
         sys.exit(1)
 
     create_save_folder()
@@ -317,12 +337,10 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
 
     config["non_interactive"] = non_interactive
 
-    # Run the display expense function when exiting the script
-    if not non_interactive:
-        atexit.register(display_expense, model=config["model"])
+    # Run the display expense function when exiting the script    
+    atexit.register(display_expense, model=config["model"])
 
-    if not non_interactive:
-        console.print(f"Model in use: [green bold]{config['model']}")
+    log.info(f"Model in use: {config['model']}")
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
@@ -330,9 +348,8 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
 
     # Context from the command line option
     if context:
-        for c in context:
-            if not non_interactive:
-                console.print(f"Context file: [green bold]{c.name}")
+        for c in context:            
+            log.info(f"Context file: {c.name}")
             messages.append({"role": "system", "content": c.read().strip()})
 
     # Restore a previous session
@@ -351,13 +368,9 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
             completion_tokens += history_data["completion_tokens"]
-            if not non_interactive:
-                console.print(f"Restored session: [bold green]{restore}")
+            log.info(f"Restored session: {restore}")
         except FileNotFoundError:
-            console.print(f"[red bold]File {restore_file} not found")
-
-    if not non_interactive:
-        console.rule()
+            log.error(f"[red bold]File {restore_file} not found")
 
     while True:
         try:
