@@ -220,6 +220,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
                 },
                 f,
                 indent=4,
+                ensure_ascii=False
             )
 
         if config["non_interactive"]:
