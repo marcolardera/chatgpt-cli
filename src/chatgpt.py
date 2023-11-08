@@ -27,13 +27,15 @@ BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 
 PRICING_RATE = {
-    "gpt-3.5-turbo": {"prompt": 0.0015, "completion": 0.002},
-    "gpt-3.5-turbo-0613": {"prompt": 0.0015, "completion": 0.002},
-    "gpt-3.5-turbo-16k": {"prompt": 0.003, "completion": 0.004},
+    "gpt-3.5-turbo": {"prompt": 0.001, "completion": 0.002},
+    "gpt-3.5-turbo-1106": {"prompt": 0.001, "completion": 0.002},
+    "gpt-3.5-turbo-0613": {"prompt": 0.001, "completion": 0.002},
+    "gpt-3.5-turbo-16k": {"prompt": 0.001, "completion": 0.002},
     "gpt-4": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
     "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
+    "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
 }
 
 
@@ -129,16 +131,20 @@ def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    total_expense = calculate_expense(
-        prompt_tokens,
-        completion_tokens,
-        PRICING_RATE[model]["prompt"],
-        PRICING_RATE[model]["completion"],
-    )
     console.print(
         f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}"
     )
-    console.print(f"Estimated expense: [green bold]${total_expense}")
+
+    if model in PRICING_RATE:
+        total_expense = calculate_expense(
+            prompt_tokens,
+            completion_tokens,
+            PRICING_RATE[model]["prompt"],
+            PRICING_RATE[model]["completion"],
+        )
+        console.print(f"Estimated expense: [green bold]${total_expense}")
+    else:
+        console.print(f"[red bold]No expense estimate available for model {model}")
 
 
 def start_prompt(session: PromptSession, config: dict) -> None:
@@ -220,7 +226,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
                 },
                 f,
                 indent=4,
-                ensure_ascii=False
+                ensure_ascii=False,
             )
 
         if config["non_interactive"]:
