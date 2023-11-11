@@ -126,7 +126,7 @@ In this case the content of `example_file` is sent directly to ChatGPT and the r
 
 *Note (2023-11-11):* This feature is only available for the `gpt-3.5-turbo-1106` and `gpt-4-1106-preview` models for now.
 
-JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to always respond with a JSON to each request. You must ask for a json (if the first message does not include the word "json" an "Invalid request" response is returned) and, in general, describe the schema and the content type of the desired JSON. Be careful of not being to vague in the request because you may get a very long, random response (with higher expenses).
+JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to always respond with a JSON to each request. You must ask for a JSON explicitly (if the first message does not include the word "json" an "Invalid request" response is returned) and, in general, describe the schema and the content type of the desired result. Be careful of not being too vague in the request because you may get a very long, random response (with higher expenses).
 
 Also check the [OpenAI Documentation](https://platform.openai.com/docs/guides/text-generation/json-mode).
 
