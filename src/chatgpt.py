@@ -182,9 +182,11 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         "temperature": config["temperature"],
         "messages": messages,
     }
-    # Optional parameter
+    # Optional parameters
     if "max_tokens" in config:
         body["max_tokens"] = config["max_tokens"]
+    if config["json_mode"]:
+        body["response_format"] = {"type": "json_object"}
 
     try:
         r = requests.post(
@@ -290,7 +292,12 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     is_flag=True,
     help="Non interactive/command mode for piping",
 )
-def main(context, api_key, model, multiline, restore, non_interactive) -> None:
+@click.option(
+    "-j", "--json", "json_mode", is_flag=True, help="Activate json response mode"
+)
+def main(
+    context, api_key, model, multiline, restore, non_interactive, json_mode
+) -> None:
     if not non_interactive:
         console.print("ChatGPT CLI", style="bold")
 
@@ -323,6 +330,7 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
         config["model"] = model.strip()
 
     config["non_interactive"] = non_interactive
+    config["json_mode"] = json_mode
 
     # Run the display expense function when exiting the script
     if not non_interactive:
@@ -362,6 +370,11 @@ def main(context, api_key, model, multiline, restore, non_interactive) -> None:
                 console.print(f"Restored session: [bold green]{restore}")
         except FileNotFoundError:
             console.print(f"[red bold]File {restore_file} not found")
+
+    if json_mode:
+        console.print(
+            "JSON response mode is active. Your message should contain the [bold]'json'[/bold] word."
+        )
 
     if not non_interactive:
         console.rule()
