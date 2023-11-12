@@ -50,13 +50,15 @@ ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to us
 
 |Name|Pricing (input token)|Pricing(output token)|
 |---|---|---|
-|`gpt-3.5-turbo`|0.0015|0.002|
-|`gpt-3.5-turbo-0613`|0.0015|0.002|
-|`gpt-3.5-turbo-16k`|0.003|0.004|
+|`gpt-3.5-turbo`|0.001|0.002|
+|`gpt-3.5-turbo-1106`|0.001|0.002|
+|`gpt-3.5-turbo-0613`|0.001|0.002|
+|`gpt-3.5-turbo-16k`|0.001|0.002|
 |`gpt-4`|0.03|0.06|
 |`gpt-4-0613`|0.03|0.06|
 |`gpt-4-32k`|0.06|0.12|
 |`gpt-4-32k-0613`|0.06|0.12|
+|`gpt-4-32k-1106-preview`|0.01|0.03|
 
 Pricing is calculated as $/1000 tokens.
 
