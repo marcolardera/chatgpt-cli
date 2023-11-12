@@ -3,6 +3,7 @@
 import atexit
 import click
 import datetime
+import logging
 import os
 import requests
 import sys
@@ -13,6 +14,7 @@ from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
 
@@ -37,6 +39,15 @@ PRICING_RATE = {
     "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
     "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
 }
+
+logger = logging.getLogger("rich")
+logging.basicConfig(
+    level="INFO",
+    format="%(message)s",
+    handlers=[
+        RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
+    ],
+)
 
 
 # Initialize the messages history list
@@ -131,8 +142,9 @@ def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    console.print(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}"
+    logger.info(
+        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
+        extra={"highlighter": None},
     )
 
     if model in PRICING_RATE:
@@ -142,9 +154,15 @@ def display_expense(model: str) -> None:
             PRICING_RATE[model]["prompt"],
             PRICING_RATE[model]["completion"],
         )
-        console.print(f"Estimated expense: [green bold]${total_expense}")
+        logger.info(
+            f"Estimated expense: [green bold]${total_expense}",
+            extra={"highlighter": None},
+        )
     else:
-        console.print(f"[red bold]No expense estimate available for model {model}")
+        logger.warning(
+            f"[red bold]No expense estimate available for model {model}",
+            extra={"highlighter": None},
+        )
 
 
 def start_prompt(session: PromptSession, config: dict) -> None:
@@ -193,11 +211,15 @@ def start_prompt(session: PromptSession, config: dict) -> None:
             f"{BASE_ENDPOINT}/chat/completions", headers=headers, json=body
         )
     except requests.ConnectionError:
-        console.print("Connection error, try again...", style="red bold")
+        logger.error(
+            "[red bold]Connection error, try again...", extra={"highlighter": None}
+        )
         messages.pop()
         raise KeyboardInterrupt
     except requests.Timeout:
-        console.print("Connection timed out, try again...", style="red bold")
+        logger.error(
+            "[red bold]Connection timed out, try again...", extra={"highlighter": None}
+        )
         messages.pop()
         raise KeyboardInterrupt
 
@@ -239,29 +261,41 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         response = r.json()
         if "error" in response:
             if response["error"]["code"] == "context_length_exceeded":
-                console.print("Maximum context length exceeded", style="red bold")
+                logger.error(
+                    "[red bold]Maximum context length exceeded",
+                    extra={"highlighter": None},
+                )
                 raise EOFError
                 # TODO: Develop a better strategy to manage this case
-        console.print("Invalid request", style="bold red")
+        logger.error("[red bold]Invalid request", extra={"highlighter": None})
         raise EOFError
 
     elif r.status_code == 401:
-        console.print("Invalid API Key", style="bold red")
+        logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
         raise EOFError
 
     elif r.status_code == 429:
-        console.print("Rate limit or maximum monthly limit exceeded", style="bold red")
+        logger.error(
+            "[red bold]Rate limit or maximum monthly limit exceeded",
+            extra={"highlighter": None},
+        )
         messages.pop()
         raise KeyboardInterrupt
 
     elif r.status_code == 502 or r.status_code == 503:
-        console.print("The server seems to be overloaded, try again", style="bold red")
+        logger.error(
+            "[red bold]The server seems to be overloaded, try again",
+            extra={"highlighter": None},
+        )
         messages.pop()
         raise KeyboardInterrupt
 
     else:
-        console.print(f"Unknown error, status code {r.status_code}", style="bold red")
-        console.print(r.json())
+        logger.error(
+            f"[red bold]Unknown error, status code {r.status_code}",
+            extra={"highlighter": None},
+        )
+        logger.error(r.json(), extra={"highlighter": None})
         raise EOFError
 
 
@@ -298,8 +332,11 @@ def start_prompt(session: PromptSession, config: dict) -> None:
 def main(
     context, api_key, model, multiline, restore, non_interactive, json_mode
 ) -> None:
-    if not non_interactive:
-        console.print("ChatGPT CLI", style="bold")
+    # If non interactive suppress the logging messages
+    if non_interactive:
+        logger.setLevel("ERROR")
+
+    logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
 
     history = FileHistory(HISTORY_FILE)
 
@@ -311,7 +348,9 @@ def main(
     try:
         config = load_config(CONFIG_FILE)
     except FileNotFoundError:
-        console.print("Configuration file not found", style="red bold")
+        logger.error(
+            "[red bold]Configuration file not found", extra={"highlighter": None}
+        )
         sys.exit(1)
 
     create_save_folder()
@@ -333,11 +372,11 @@ def main(
     config["json_mode"] = json_mode
 
     # Run the display expense function when exiting the script
-    if not non_interactive:
-        atexit.register(display_expense, model=config["model"])
+    atexit.register(display_expense, model=config["model"])
 
-    if not non_interactive:
-        console.print(f"Model in use: [green bold]{config['model']}")
+    logger.info(
+        f"Model in use: [green bold]{config['model']}", extra={"highlighter": None}
+    )
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
@@ -346,8 +385,9 @@ def main(
     # Context from the command line option
     if context:
         for c in context:
-            if not non_interactive:
-                console.print(f"Context file: [green bold]{c.name}")
+            logger.info(
+                f"Context file: [green bold]{c.name}", extra={"highlighter": None}
+            )
             messages.append({"role": "system", "content": c.read().strip()})
 
     # Restore a previous session
@@ -366,14 +406,19 @@ def main(
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
             completion_tokens += history_data["completion_tokens"]
-            if not non_interactive:
-                console.print(f"Restored session: [bold green]{restore}")
+            logger.info(
+                f"Restored session: [bold green]{restore}",
+                extra={"highlighter": None},
+            )
         except FileNotFoundError:
-            console.print(f"[red bold]File {restore_file} not found")
+            logger.error(
+                f"[red bold]File {restore_file} not found", extra={"highlighter": None}
+            )
 
     if json_mode:
-        console.print(
-            "JSON response mode is active. Your message should contain the [bold]'json'[/bold] word."
+        logger.info(
+            "JSON response mode is active. Your message should contain the [bold]'json'[/bold] word.",
+            extra={"highlighter": None},
         )
 
     if not non_interactive:
