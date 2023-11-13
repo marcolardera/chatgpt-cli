@@ -229,12 +229,14 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         message_response = response["choices"][0]["message"]
         usage_response = response["usage"]
 
-        console.line()
+        if not config["non_interactive"]:
+            console.line()
         if config["markdown"]:
             console.print(Markdown(message_response["content"].strip()))
         else:
-            console.print(message_response["content"].strip())
-        console.line()
+            print(message_response["content"].strip())
+        if not config["non_interactive"]:
+            console.line()
 
         # Update message history and token counters
         messages.append(message_response)
@@ -369,6 +371,12 @@ def main(
         config["model"] = model.strip()
 
     config["non_interactive"] = non_interactive
+    
+    # Do not emit markdown in this case; ctrl character formatting interferes in several contexts including json
+    # output.
+    if config["non_interactive"]:
+        config["markdown"] = False
+    
     config["json_mode"] = json_mode
 
     # Run the display expense function when exiting the script
