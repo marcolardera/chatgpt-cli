@@ -110,6 +110,23 @@ def create_save_folder() -> None:
     if not os.path.exists(SAVE_FOLDER):
         os.mkdir(SAVE_FOLDER)
 
+def save_history(model: str, messages: list, prompt_tokens: int, completion_tokens: int) -> None:
+    """
+    Save the conversation history in JSON format
+    """
+    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
+                json.dump(
+                    {
+                        "model": model,
+                        "messages": messages,
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False,
+                )
+
 
 def add_markdown_system_message() -> None:
     """
@@ -223,82 +240,80 @@ def start_prompt(session: PromptSession, config: dict) -> None:
         messages.pop()
         raise KeyboardInterrupt
 
-    if r.status_code == 200:
-        response = r.json()
+    match r.status_code:
+        case 200:
+            response = r.json()
 
-        message_response = response["choices"][0]["message"]
-        usage_response = response["usage"]
+            message_response = response["choices"][0]["message"]
+            usage_response = response["usage"]
 
-        if not config["non_interactive"]:
-            console.line()
-        if config["markdown"]:
-            console.print(Markdown(message_response["content"].strip()))
-        else:
-            print(message_response["content"].strip())
-        if not config["non_interactive"]:
-            console.line()
+            if not config["non_interactive"]:
+                console.line()
+            if config["markdown"]:
+                console.print(Markdown(message_response["content"].strip()))
+            else:
+                print(message_response["content"].strip())
+            if not config["non_interactive"]:
+                console.line()
 
-        # Update message history and token counters
-        messages.append(message_response)
-        prompt_tokens += usage_response["prompt_tokens"]
-        completion_tokens += usage_response["completion_tokens"]
-        with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
-            json.dump(
-                {
-                    "model": config["model"],
-                    "messages": messages,
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                },
-                f,
-                indent=4,
-                ensure_ascii=False,
-            )
+            # Update message history and token counters
+            messages.append(message_response)
+            prompt_tokens += usage_response["prompt_tokens"]
+            completion_tokens += usage_response["completion_tokens"]
+            save_history(config["model"], messages, prompt_tokens, completion_tokens)
 
-        if config["non_interactive"]:
-            # In non-interactive mode there is no looping back for a second prompt, you're done.
+            if config["non_interactive"]:
+                # In non-interactive mode there is no looping back for a second prompt, you're done.
+                raise EOFError
+
+        case 400:
+            response = r.json()
+            if "error" in response:
+                if response["error"]["code"] == "context_length_exceeded":
+                    logger.error(
+                        "[red bold]Maximum context length exceeded",
+                        extra={"highlighter": None},
+                    )
+                    raise EOFError
+                    # TODO: Develop a better strategy to manage this case
+            logger.error("[red bold]Invalid request", extra={"highlighter": None})
             raise EOFError
 
-    elif r.status_code == 400:
-        response = r.json()
-        if "error" in response:
-            if response["error"]["code"] == "context_length_exceeded":
-                logger.error(
-                    "[red bold]Maximum context length exceeded",
-                    extra={"highlighter": None},
-                )
-                raise EOFError
-                # TODO: Develop a better strategy to manage this case
-        logger.error("[red bold]Invalid request", extra={"highlighter": None})
-        raise EOFError
+        case 401:
+            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
+            raise EOFError
 
-    elif r.status_code == 401:
-        logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
-        raise EOFError
+        case 429:
+            logger.error(
+                "[red bold]Rate limit or maximum monthly limit exceeded",
+                extra={"highlighter": None},
+            )
+            messages.pop()
+            raise KeyboardInterrupt
 
-    elif r.status_code == 429:
-        logger.error(
-            "[red bold]Rate limit or maximum monthly limit exceeded",
-            extra={"highlighter": None},
-        )
-        messages.pop()
-        raise KeyboardInterrupt
+        case 500:
+            logger.error(
+                "[red bold]Internal server error, check https://status.openai.com",
+                extra={"highlighter": None},
+            )
+            messages.pop()
+            raise KeyboardInterrupt
 
-    elif r.status_code == 502 or r.status_code == 503:
-        logger.error(
-            "[red bold]The server seems to be overloaded, try again",
-            extra={"highlighter": None},
-        )
-        messages.pop()
-        raise KeyboardInterrupt
+        case 502 | 503:
+            logger.error(
+                "[red bold]The server seems to be overloaded, try again",
+                extra={"highlighter": None},
+            )
+            messages.pop()
+            raise KeyboardInterrupt
 
-    else:
-        logger.error(
-            f"[red bold]Unknown error, status code {r.status_code}",
-            extra={"highlighter": None},
-        )
-        logger.error(r.json(), extra={"highlighter": None})
-        raise EOFError
+        case _:
+            logger.error(
+                f"[red bold]Unknown error, status code {r.status_code}",
+                extra={"highlighter": None},
+            )
+            logger.error(r.json(), extra={"highlighter": None})
+            raise EOFError
 
 
 @click.command()
@@ -371,12 +386,12 @@ def main(
         config["model"] = model.strip()
 
     config["non_interactive"] = non_interactive
-    
+
     # Do not emit markdown in this case; ctrl character formatting interferes in several contexts including json
     # output.
     if config["non_interactive"]:
         config["markdown"] = False
-    
+
     config["json_mode"] = json_mode
 
     # Run the display expense function when exiting the script
