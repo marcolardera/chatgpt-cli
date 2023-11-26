@@ -3,3 +3,4 @@ model: "gpt-3.5-turbo"
 temperature: 1
 #max_tokens: 500 
 markdown: true
+easy_copy: true

@@ -1,6 +1,8 @@
 #!/bin/env python
 
 import atexit
+from typing import Optional
+
 import click
 import datetime
 import logging
@@ -68,10 +70,12 @@ def load_config(config_file: str) -> dict:
         config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w") as file:
             file.write(
-                'api-key: "INSERT API KEY HERE"\n' + 'model: "gpt-3.5-turbo"\n'
+                'api-key: "INSERT API KEY HERE"\n'
+                'model: "gpt-3.5-turbo"\n'
                 "temperature: 1\n"
                 "#max_tokens: 500\n"
                 "markdown: true\n"
+                "easy_copy: true\n"
             )
         # console.print(f"New config file initialized: [green bold]{config_file}")
 
@@ -182,7 +186,52 @@ def display_expense(model: str) -> None:
         )
 
 
-def start_prompt(session: PromptSession, config: dict) -> None:
+def print_markdown(content: str, code_blocks: Optional[dict] = None):
+    """
+    Print markdown formatted text to the terminal.
+    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
+    """
+    if code_blocks is None:
+        console.print(Markdown(content))
+        return
+
+    lines = content.split('\n')
+    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
+    code_block_open = False
+    code_block_language = ""
+    code_block_content = []
+    regular_content = []
+
+    for line in lines:
+        if line.startswith('```') and not code_block_open:
+            code_block_open = True
+            code_block_language = line.replace('```', '').strip()
+            if regular_content:
+                console.print(Markdown('\n'.join(regular_content)))
+                regular_content = []
+        elif line.startswith('```') and code_block_open:
+            code_block_open = False
+            snippet_text = '\n'.join(code_block_content)
+            if code_blocks is not None:
+                code_blocks[code_block_id] = snippet_text
+            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
+            console.print(f'Block {code_block_id}', style='blue', justify='right')
+            console.print(Markdown(formatted_code_block))
+            code_block_id += 1
+            code_block_content = []
+            code_block_language = ""
+        elif code_block_open:
+            code_block_content.append(line)
+        else:
+            regular_content.append(line)
+
+    if code_block_open:  # uh-oh, the code block was never closed.
+        console.print(Markdown('\n'.join(code_block_content)))
+    elif regular_content:  # If there's any remaining regular content, print it
+        console.print(Markdown('\n'.join(regular_content)))
+
+
+def start_prompt(session: PromptSession, config: dict, copyable_blocks: Optional[dict]) -> None:
     """
     Ask the user for input, build the request and perform it
     """
@@ -250,7 +299,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                console.print(Markdown(message_response["content"].strip()))
+                print_markdown(message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
@@ -394,6 +443,8 @@ def main(
 
     config["json_mode"] = json_mode
 
+    copyable_blocks = {} if config["easy_copy"] else None
+
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
 
@@ -449,7 +500,7 @@ def main(
 
     while True:
         try:
-            start_prompt(session, config)
+            start_prompt(session, config, copyable_blocks)
         except KeyboardInterrupt:
             continue
         except EOFError:
