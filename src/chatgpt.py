@@ -282,7 +282,10 @@ def start_prompt(session: PromptSession, config: dict, copyable_blocks: Optional
                 console.print(f"Copied block {block_id} to clipboard")
             else:
                 logger.error(f"No code block with ID {block_id} available", extra={"highlighter": None})
-            raise KeyboardInterrupt
+        elif messages:
+            pyperclip.copy(messages[-1]['content'])
+            console.print(f"Copied previous response to clipboard")
+        raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
 
