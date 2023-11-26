@@ -1,6 +1,7 @@
 #!/bin/env python
 
 import atexit
+import pyperclip
 from typing import Optional
 
 import click
@@ -11,6 +12,7 @@ import requests
 import sys
 import yaml
 import json
+import re
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -257,6 +259,18 @@ def start_prompt(session: PromptSession, config: dict, copyable_blocks: Optional
         raise EOFError
     if message.lower() == "":
         raise KeyboardInterrupt
+
+    if config["easy_copy"] and message.lower().startswith("/c"):
+        # Use regex to find digits after /c or /copy
+        match = re.search(r'^/c(?:opy)?\s*(\d+)', message.lower())
+        if match:
+            block_id = int(match.group(1))
+            if block_id in copyable_blocks:
+                pyperclip.copy(copyable_blocks[block_id])
+                console.print(f"Copied block {block_id} to clipboard")
+            else:
+                logger.error(f"No code block with ID {block_id} available", extra={"highlighter": None})
+            raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
 
