@@ -64,14 +64,14 @@ completion_tokens = 0
 console = Console()
 
 DEFAULT_CONFIG = {
-    'api-key': "INSERT API KEY HERE",
-    'model': "gpt-3.5-turbo",
-    'temperature': 1,
+    "api-key": "INSERT API KEY HERE",
+    "model": "gpt-3.5-turbo",
+    "temperature": 1,
     # 'max_tokens': 500,
-    'markdown': True,
-    'easy_copy': True,
-    'non_interactive': False,
-    'json_mode': False,
+    "markdown": True,
+    "easy_copy": True,
+    "non_interactive": False,
+    "json_mode": False,
 }
 
 
@@ -128,22 +128,25 @@ def create_save_folder() -> None:
     if not os.path.exists(SAVE_FOLDER):
         os.mkdir(SAVE_FOLDER)
 
-def save_history(model: str, messages: list, prompt_tokens: int, completion_tokens: int) -> None:
+
+def save_history(
+    model: str, messages: list, prompt_tokens: int, completion_tokens: int
+) -> None:
     """
     Save the conversation history in JSON format
     """
     with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
-                json.dump(
-                    {
-                        "model": model,
-                        "messages": messages,
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                    },
-                    f,
-                    indent=4,
-                    ensure_ascii=False,
-                )
+        json.dump(
+            {
+                "model": model,
+                "messages": messages,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+            },
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def add_markdown_system_message() -> None:
@@ -209,7 +212,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         console.print(Markdown(content))
         return
 
-    lines = content.split('\n')
+    lines = content.split("\n")
     code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
     code_block_open = False
     code_block_language = ""
@@ -217,19 +220,19 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     regular_content = []
 
     for line in lines:
-        if line.startswith('```') and not code_block_open:
+        if line.startswith("```") and not code_block_open:
             code_block_open = True
-            code_block_language = line.replace('```', '').strip()
+            code_block_language = line.replace("```", "").strip()
             if regular_content:
-                console.print(Markdown('\n'.join(regular_content)))
+                console.print(Markdown("\n".join(regular_content)))
                 regular_content = []
-        elif line.startswith('```') and code_block_open:
+        elif line.startswith("```") and code_block_open:
             code_block_open = False
-            snippet_text = '\n'.join(code_block_content)
+            snippet_text = "\n".join(code_block_content)
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
             formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f'Block {code_block_id}', style='blue', justify='right')
+            console.print(f"Block {code_block_id}", style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
@@ -240,12 +243,14 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             regular_content.append(line)
 
     if code_block_open:  # uh-oh, the code block was never closed.
-        console.print(Markdown('\n'.join(code_block_content)))
+        console.print(Markdown("\n".join(code_block_content)))
     elif regular_content:  # If there's any remaining regular content, print it
-        console.print(Markdown('\n'.join(regular_content)))
+        console.print(Markdown("\n".join(regular_content)))
 
 
-def start_prompt(session: PromptSession, config: dict, copyable_blocks: Optional[dict]) -> None:
+def start_prompt(
+    session: PromptSession, config: dict, copyable_blocks: Optional[dict]
+) -> None:
     """
     Ask the user for input, build the request and perform it
     """
@@ -274,16 +279,19 @@ def start_prompt(session: PromptSession, config: dict, copyable_blocks: Optional
 
     if config["easy_copy"] and message.lower().startswith("/c"):
         # Use regex to find digits after /c or /copy
-        match = re.search(r'^/c(?:opy)?\s*(\d+)', message.lower())
+        match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
         if match:
             block_id = int(match.group(1))
             if block_id in copyable_blocks:
                 pyperclip.copy(copyable_blocks[block_id])
                 console.print(f"Copied block {block_id} to clipboard")
             else:
-                logger.error(f"No code block with ID {block_id} available", extra={"highlighter": None})
+                logger.error(
+                    f"No code block with ID {block_id} available",
+                    extra={"highlighter": None},
+                )
         elif messages:
-            pyperclip.copy(messages[-1]['content'])
+            pyperclip.copy(messages[-1]["content"])
             console.print(f"Copied previous response to clipboard")
         raise KeyboardInterrupt
 
