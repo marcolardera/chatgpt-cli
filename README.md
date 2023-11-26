@@ -42,7 +42,7 @@ The configuration file *config.yaml* can be found in the default config director
 
 On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). The default, if the variable is not set, should be the `~/.config` folder.
 
-On the first execution of the script, a [template](config.yaml) of the config file is automatically created.
+On the first execution of the script, a [template](config.yaml) of the config file is automatically created. If a config file already exists but is missing any fields, default values are used for the missing fields.
 
 ## Models
 
