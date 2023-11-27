@@ -42,7 +42,7 @@ The configuration file *config.yaml* can be found in the default config director
 
 On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). The default, if the variable is not set, should be the `~/.config` folder.
 
-On the first execution of the script, a [template](config.yaml) of the config file is automatically created.
+On the first execution of the script, a [template](config.yaml) of the config file is automatically created. If a config file already exists but is missing any fields, default values are used for the missing fields.
 
 ## Models
 
@@ -73,6 +73,8 @@ Launch the script typing in your terminal:
 Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the conversation at that point.
 
 Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session, based on the specific model in use.
+
+Use the `/copy` (or `/c`) command to copy code blocks from the generated output. Specifically, `/copy` or `/c` followed by an integer copies the nth code block to the clipboard. Code blocks are labeled in the console output so that it is clear which index corresponds to which block. Running the `/copy` command without any arguments copies the entire contents of the previous response.
 
 For displaying all the available commands check the help with `chatgpt-cli --help`
 

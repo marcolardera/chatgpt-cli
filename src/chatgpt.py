@@ -1,6 +1,9 @@
 #!/bin/env python
 
 import atexit
+import pyperclip
+from typing import Optional
+
 import click
 import datetime
 import logging
@@ -9,6 +12,7 @@ import requests
 import sys
 import yaml
 import json
+import re
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -59,24 +63,38 @@ completion_tokens = 0
 # Initialize the console
 console = Console()
 
+DEFAULT_CONFIG = {
+    "api-key": "INSERT API KEY HERE",
+    "model": "gpt-3.5-turbo",
+    "temperature": 1,
+    # 'max_tokens': 500,
+    "markdown": True,
+    "easy_copy": True,
+    "non_interactive": False,
+    "json_mode": False,
+}
+
 
 def load_config(config_file: str) -> dict:
     """
-    Read a YAML config file and returns it's content as a dictionary
+    Read a YAML config file and returns its content as a dictionary.
+    If the config file is missing, create one with default values.
+    If the config file is present but missing keys, populate them with defaults.
     """
+    # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
-        config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w") as file:
-            file.write(
-                'api-key: "INSERT API KEY HERE"\n' + 'model: "gpt-3.5-turbo"\n'
-                "temperature: 1\n"
-                "#max_tokens: 500\n"
-                "markdown: true\n"
-            )
-        # console.print(f"New config file initialized: [green bold]{config_file}")
+            yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
+        logger.info(f"New config file initialized: [green bold]{config_file}")
 
+    # Load existing config
     with open(config_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
+
+    # Update the loaded config with any default values that are missing
+    for key, value in DEFAULT_CONFIG.items():
+        if key not in config:
+            config[key] = value
 
     return config
 
@@ -110,22 +128,25 @@ def create_save_folder() -> None:
     if not os.path.exists(SAVE_FOLDER):
         os.mkdir(SAVE_FOLDER)
 
-def save_history(model: str, messages: list, prompt_tokens: int, completion_tokens: int) -> None:
+
+def save_history(
+    model: str, messages: list, prompt_tokens: int, completion_tokens: int
+) -> None:
     """
     Save the conversation history in JSON format
     """
     with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
-                json.dump(
-                    {
-                        "model": model,
-                        "messages": messages,
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                    },
-                    f,
-                    indent=4,
-                    ensure_ascii=False,
-                )
+        json.dump(
+            {
+                "model": model,
+                "messages": messages,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+            },
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def add_markdown_system_message() -> None:
@@ -182,7 +203,54 @@ def display_expense(model: str) -> None:
         )
 
 
-def start_prompt(session: PromptSession, config: dict) -> None:
+def print_markdown(content: str, code_blocks: Optional[dict] = None):
+    """
+    Print markdown formatted text to the terminal.
+    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
+    """
+    if code_blocks is None:
+        console.print(Markdown(content))
+        return
+
+    lines = content.split("\n")
+    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
+    code_block_open = False
+    code_block_language = ""
+    code_block_content = []
+    regular_content = []
+
+    for line in lines:
+        if line.startswith("```") and not code_block_open:
+            code_block_open = True
+            code_block_language = line.replace("```", "").strip()
+            if regular_content:
+                console.print(Markdown("\n".join(regular_content)))
+                regular_content = []
+        elif line.startswith("```") and code_block_open:
+            code_block_open = False
+            snippet_text = "\n".join(code_block_content)
+            if code_blocks is not None:
+                code_blocks[code_block_id] = snippet_text
+            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
+            console.print(f"Block {code_block_id}", style="blue", justify="right")
+            console.print(Markdown(formatted_code_block))
+            code_block_id += 1
+            code_block_content = []
+            code_block_language = ""
+        elif code_block_open:
+            code_block_content.append(line)
+        else:
+            regular_content.append(line)
+
+    if code_block_open:  # uh-oh, the code block was never closed.
+        console.print(Markdown("\n".join(code_block_content)))
+    elif regular_content:  # If there's any remaining regular content, print it
+        console.print(Markdown("\n".join(regular_content)))
+
+
+def start_prompt(
+    session: PromptSession, config: dict, copyable_blocks: Optional[dict]
+) -> None:
     """
     Ask the user for input, build the request and perform it
     """
@@ -207,6 +275,29 @@ def start_prompt(session: PromptSession, config: dict) -> None:
     if message.lower() == "/q":
         raise EOFError
     if message.lower() == "":
+        raise KeyboardInterrupt
+
+    if config["easy_copy"] and message.lower().startswith("/c"):
+        # Use regex to find digits after /c or /copy
+        match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
+        if match:
+            block_id = int(match.group(1))
+            if block_id in copyable_blocks:
+                try:
+                    pyperclip.copy(copyable_blocks[block_id])
+                    logger.info(f"Copied block {block_id} to clipboard")
+                except pyperclip.PyperclipException:
+                    logger.error(
+                        "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error"
+                    )
+            else:
+                logger.error(
+                    f"No code block with ID {block_id} available",
+                    extra={"highlighter": None},
+                )
+        elif messages:
+            pyperclip.copy(messages[-1]["content"])
+            logger.info(f"Copied previous response to clipboard")
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
@@ -250,7 +341,7 @@ def start_prompt(session: PromptSession, config: dict) -> None:
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                console.print(Markdown(message_response["content"].strip()))
+                print_markdown(message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
@@ -394,6 +485,8 @@ def main(
 
     config["json_mode"] = json_mode
 
+    copyable_blocks = {} if config["easy_copy"] else None
+
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=config["model"])
 
@@ -449,7 +542,7 @@ def main(
 
     while True:
         try:
-            start_prompt(session, config)
+            start_prompt(session, config, copyable_blocks)
         except KeyboardInterrupt:
             continue
         except EOFError:
