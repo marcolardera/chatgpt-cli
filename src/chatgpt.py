@@ -85,7 +85,7 @@ def load_config(config_file: str) -> dict:
     if not Path(config_file).exists():
         with open(config_file, "w") as file:
             yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
-        console.print(f"New config file initialized: [green bold]{config_file}")
+        logger.info(f"New config file initialized: [green bold]{config_file}")
 
     # Load existing config
     with open(config_file) as file:
@@ -283,8 +283,13 @@ def start_prompt(
         if match:
             block_id = int(match.group(1))
             if block_id in copyable_blocks:
-                pyperclip.copy(copyable_blocks[block_id])
-                console.print(f"Copied block {block_id} to clipboard")
+                try:
+                    pyperclip.copy(copyable_blocks[block_id])
+                    logger.info(f"Copied block {block_id} to clipboard")
+                except pyperclip.PyperclipException:
+                    logger.error(
+                        "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error"
+                    )
             else:
                 logger.error(
                     f"No code block with ID {block_id} available",
@@ -292,7 +297,7 @@ def start_prompt(
                 )
         elif messages:
             pyperclip.copy(messages[-1]["content"])
-            console.print(f"Copied previous response to clipboard")
+            logger.info(f"Copied previous response to clipboard")
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
