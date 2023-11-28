@@ -80,8 +80,7 @@ def load_config(config_file: str) -> dict:
     Read a YAML config file and returns its content as a dictionary.
     If the config file is missing, create one with default values.
     If the config file is present but missing keys, populate them with defaults.
-    """
-    print(Path(config_file))
+    """    
     # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
