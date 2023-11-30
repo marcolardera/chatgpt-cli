@@ -1,6 +1,20 @@
-api-key: "INSERT API KEY HERE"
-model: "gpt-3.5-turbo"
-temperature: 1
+# Supplier: openai, azure
+supplier: "azure"
+
+# If supplier is openai, please set this value
+OPENAI_ENDPOINT: "https://api.openai.com/v1"
+OPENAI_API_KEY: "sk-"
+OPENAI_MODEL: "gpt-3.5-turbo"
+
+# If supplier is azure, please set this value
+AZURE_OPENAI_ENDPOINT: "https://xxxx.openai.azure.com/"
+AZURE_OPENAI_API_VERSION: "2023-07-01-preview"
+AZURE_OPENAI_API_KEY: "xxxx"
+AZURE_OPENAI_DEPLOYMENT_NAME: 'gpt-35-turbo'
+AZURE_OPENAI_DEPLOYMENT_NAME_EB: "text-embedding-ada-002"
+
+# Settings
+temperature: 0.2
 #max_tokens: 500 
 markdown: true
 easy_copy: true

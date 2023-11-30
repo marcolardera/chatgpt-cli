@@ -44,21 +44,25 @@ On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it
 
 On the first execution of the script, a [template](config.yaml) of the config file is automatically created. If a config file already exists but is missing any fields, default values are used for the missing fields.
 
+## Supplier
+
+You can set the supplier as `openai` or `azure` in the [config.yaml](config.ymal). Remember to modify the parameters corresponding to the supplier.
+
 ## Models
 
 ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model` parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available options:
 
-|Name|Pricing (input token)|Pricing(output token)|
-|---|---|---|
-|`gpt-3.5-turbo`|0.001|0.002|
-|`gpt-3.5-turbo-1106`|0.001|0.002|
-|`gpt-3.5-turbo-0613`|0.001|0.002|
-|`gpt-3.5-turbo-16k`|0.001|0.002|
-|`gpt-4`|0.03|0.06|
-|`gpt-4-0613`|0.03|0.06|
-|`gpt-4-32k`|0.06|0.12|
-|`gpt-4-32k-0613`|0.06|0.12|
-|`gpt-4-1106-preview`|0.01|0.03|
+| Name                 | Pricing (input token) | Pricing(output token) |
+| -------------------- | --------------------- | --------------------- |
+| `gpt-3.5-turbo`      | 0.001                 | 0.002                 |
+| `gpt-3.5-turbo-1106` | 0.001                 | 0.002                 |
+| `gpt-3.5-turbo-0613` | 0.001                 | 0.002                 |
+| `gpt-3.5-turbo-16k`  | 0.001                 | 0.002                 |
+| `gpt-4`              | 0.03                  | 0.06                  |
+| `gpt-4-0613`         | 0.03                  | 0.06                  |
+| `gpt-4-32k`          | 0.06                  | 0.12                  |
+| `gpt-4-32k-0613`     | 0.06                  | 0.12                  |
+| `gpt-4-1106-preview` | 0.01                  | 0.03                  |
 
 Pricing is calculated as $/1000 tokens.
 

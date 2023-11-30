@@ -22,6 +22,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from xdg_base_dirs import xdg_config_home
 
+
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
 HISTORY_FILE = BASE / "history"
@@ -29,14 +30,17 @@ SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
-BASE_ENDPOINT = "https://api.openai.com/v1"
-ENV_VAR = "OPENAI_API_KEY"
 
+# azure price is not accurate, it deponds on your subscription
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-1106": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-0613": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-16k": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-1106": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-0613": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-16k": {"prompt": 0.001, "completion": 0.002},
     "gpt-4": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
@@ -49,7 +53,8 @@ logging.basicConfig(
     level="INFO",
     format="%(message)s",
     handlers=[
-        RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
+        RichHandler(show_time=False, show_level=False,
+                    show_path=False, markup=True)
     ],
 )
 
@@ -64,8 +69,9 @@ completion_tokens = 0
 console = Console()
 
 DEFAULT_CONFIG = {
-    "api-key": "INSERT API KEY HERE",
-    "model": "gpt-3.5-turbo",
+    "supplier": "openai",
+    "OPENAI_MODEL": "gpt-4-32k",
+    "OPENAI_ENDPOINT": "https://api.openai.com/v1",
     "temperature": 1,
     # 'max_tokens': 500,
     "markdown": True,
@@ -115,7 +121,8 @@ def get_last_save_file() -> str:
     """
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
     if files:
-        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
+        ts = [f.replace("chatgpt-session-", "").replace(".json", "")
+              for f in files]
         ts.sort()
         return ts[-1]
     return None
@@ -181,7 +188,8 @@ def display_expense(model: str) -> None:
     Given the model used, display total tokens used and estimated expense
     """
     logger.info(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
+        f"\nTotal tokens used: [green bold]{
+            prompt_tokens + completion_tokens}",
         extra={"highlighter": None},
     )
 
@@ -213,7 +221,8 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         return
 
     lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
+    code_block_id = 0 if code_blocks is None else 1 + \
+        max(code_blocks.keys(), default=0)
     code_block_open = False
     code_block_language = ""
     code_block_content = []
@@ -231,8 +240,10 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             snippet_text = "\n".join(code_block_content)
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
-            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
+            formatted_code_block = f"```{
+                code_block_language}\n{snippet_text}\n```"
+            console.print(f"Block {code_block_id}",
+                          style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
@@ -257,11 +268,6 @@ def start_prompt(
 
     # TODO: Refactor to avoid a global variables
     global prompt_tokens, completion_tokens
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {config['api-key']}",
-    }
 
     message = ""
 
@@ -301,10 +307,22 @@ def start_prompt(
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
+    if config["supplier"] == "azure":
+        api_key = config["AZURE_OPENAI_API_KEY"]
+        # Base body parameters
+        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+        api_version = config['AZURE_OPENAI_API_VERSION']
+        base_endpoint = config["AZURE_OPENAI_ENDPOINT"]
+    elif config["supplier"] == "openai":
+        api_key = config["OPENAI_API_KEY"]
+        model = config["OPENAI_MODEL"]
+        base_endpoint = config["OPENAI_ENDPOINT"]
+    else:
+        raise ValueError("Supplier must be either 'azure' or 'openai'")
 
     # Base body parameters
     body = {
-        "model": config["model"],
+        "model": model,
         "temperature": config["temperature"],
         "messages": messages,
     }
@@ -315,9 +333,22 @@ def start_prompt(
         body["response_format"] = {"type": "json_object"}
 
     try:
-        r = requests.post(
-            f"{BASE_ENDPOINT}/chat/completions", headers=headers, json=body
-        )
+        if config["supplier"] == "azure":
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": api_key,
+            }
+            r = requests.post(
+                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}", headers=headers, json=body
+            )
+        elif config["supplier"] == "openai":
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            r = requests.post(
+                f"{base_endpoint}/chat/completions", headers=headers, json=body
+            )
     except requests.ConnectionError:
         logger.error(
             "[red bold]Connection error, try again...", extra={"highlighter": None}
@@ -341,7 +372,8 @@ def start_prompt(
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                print_markdown(message_response["content"].strip(), copyable_blocks)
+                print_markdown(
+                    message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
@@ -351,7 +383,7 @@ def start_prompt(
             messages.append(message_response)
             prompt_tokens += usage_response["prompt_tokens"]
             completion_tokens += usage_response["completion_tokens"]
-            save_history(config["model"], messages, prompt_tokens, completion_tokens)
+            save_history(model, messages, prompt_tokens, completion_tokens)
 
             if config["non_interactive"]:
                 # In non-interactive mode there is no looping back for a second prompt, you're done.
@@ -367,11 +399,13 @@ def start_prompt(
                     )
                     raise EOFError
                     # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request", extra={"highlighter": None})
+            logger.error("[red bold]Invalid request",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 401:
-            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
+            logger.error("[red bold]Invalid API Key",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 429:
@@ -466,15 +500,13 @@ def main(
     # Order of precedence for API Key configuration:
     # Command line option > Environment variable > Configuration file
 
-    # If the environment variable is set overwrite the configuration
-    if os.environ.get(ENV_VAR):
-        config["api-key"] = os.environ[ENV_VAR].strip()
     # If the --key command line argument is used overwrite the configuration
     if api_key:
-        config["api-key"] = api_key.strip()
+        config["supplier"] = "openai"
+        config["OPENAI_API_KEY"] = api_key.strip()
     # If the --model command line argument is used overwrite the configuration
     if model:
-        config["model"] = model.strip()
+        config["OPENAI_MODEL"] = model.strip()
 
     config["non_interactive"] = non_interactive
 
@@ -486,12 +518,20 @@ def main(
     config["json_mode"] = json_mode
 
     copyable_blocks = {} if config["easy_copy"] else None
-
+    if config["supplier"] == "azure":
+        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+    elif config["supplier"] == "openai":
+        model = config["OPENAI_MODEL"]
+    else:
+        raise ValueError("Supplier must be either 'azure' or 'openai'")
     # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=config["model"])
+    atexit.register(display_expense, model=model)
 
     logger.info(
-        f"Model in use: [green bold]{config['model']}", extra={"highlighter": None}
+        f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
+    )
+    logger.info(
+        f"Model in use: [green bold]{model}", extra={"highlighter": None}
     )
 
     # Add the system message for code blocks in case markdown is enabled in the config file
@@ -517,7 +557,8 @@ def main(
             global prompt_tokens, completion_tokens
             # If this feature is used --context is cleared
             messages.clear()
-            history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
+            history_data = load_history_data(
+                os.path.join(SAVE_FOLDER, restore_file))
             for message in history_data["messages"]:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
