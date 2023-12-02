@@ -134,6 +134,12 @@ JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to a
 
 Also check the [OpenAI Documentation](https://platform.openai.com/docs/guides/text-generation/json-mode).
 
+## External tools
+
+### Copy selection as context (Linux)
+
+On Linux using XWindows, you can conveniently start a chat with any text you have highlighted in any application as the provided context. [This gist](https://gist.github.com/dwymark/df4e77c4e9fc33608bf22f1288d9195e) shows how this can be done on XFCE using `xclip`.
+
 ## Contributing to this project
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md)
