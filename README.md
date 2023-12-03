@@ -140,6 +140,14 @@ Also check the [OpenAI Documentation](https://platform.openai.com/docs/guides/te
 
 On Linux using XWindows, you can conveniently start a chat with any text you have highlighted in any application as the provided context. [This gist](https://gist.github.com/dwymark/df4e77c4e9fc33608bf22f1288d9195e) shows how this can be done on XFCE using `xclip`.
 
+### DALL-E CLI
+
+Check also my other little project [DALL-E CLI](https://github.com/marcolardera/dall-e-cli). The two tools may even be combined together through piping (Asking ChatGPT to create the perfect prompt to feed into DALL-E). Little example:
+
+`echo "Write the perfect prompt for an image generation model in order to represent a man wearing a banana costume" | chatgpt-cli -n | dall-e-cli -p`
+
+It works, despite not being 100% clear if it is useful or not.
+
 ## Contributing to this project
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md)
