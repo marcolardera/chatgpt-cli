@@ -259,6 +259,68 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     elif regular_content:  # If there's any remaining regular content, print it
         console.print(Markdown("\n".join(regular_content)))
 
+def connection_test(config: dict) -> None:
+    """
+    Test the connection to the API
+    """
+    if config["supplier"] == "azure":
+        api_key = config["AZURE_OPENAI_API_KEY"]
+        # Base body parameters
+        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+        api_version = config['AZURE_OPENAI_API_VERSION']
+        base_endpoint = config["AZURE_OPENAI_ENDPOINT"]
+    elif config["supplier"] == "openai":
+        api_key = config["OPENAI_API_KEY"]
+        model = config["OPENAI_MODEL"]
+        base_endpoint = config["OPENAI_ENDPOINT"]
+    else:
+        raise ValueError("Supplier must be either 'azure' or 'openai'")
+    messages = [{"role": "user", "content": "Hello, how are you?"}]
+    # Base body parameters
+    body = {
+        "model": model,
+        "temperature": config["temperature"],
+        "messages": messages,
+    }
+    # Optional parameters
+    if "max_tokens" in config:
+        body["max_tokens"] = config["max_tokens"]
+    if config["json_mode"]:
+        body["response_format"] = {"type": "json_object"}
+
+    try:
+        if config["supplier"] == "azure":
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": api_key,
+            }
+            r = requests.post(
+                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}", headers=headers, json=body
+            )
+        elif config["supplier"] == "openai":
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            r = requests.post(
+                f"{base_endpoint}/chat/completions", headers=headers, json=body
+            )
+    except requests.ConnectionError:
+        logger.error(
+            "[red bold]Connection error, try again...", extra={"highlighter": None}
+        )
+        messages.pop()
+        raise KeyboardInterrupt
+    except requests.Timeout:
+        logger.error(
+            "[red bold]Connection timed out, try again...", extra={"highlighter": None}
+        )
+        messages.pop()
+        raise KeyboardInterrupt
+
+    match r.status_code:
+        case 200:
+            logger.info(f"Connection Status: [green bold]{'Normal'}", extra={"highlighter": None})
 
 def start_prompt(
     session: PromptSession, config: dict, copyable_blocks: Optional[dict]
@@ -534,7 +596,10 @@ def main(
     logger.info(
         f"Model in use: [green bold]{model}", extra={"highlighter": None}
     )
-
+    logger.info(
+        f"[green bold]{'Testing Connection Status......'}", extra={"highlighter": None}
+    )
+    connection_test(config)
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
         add_markdown_system_message()
@@ -581,7 +646,7 @@ def main(
 
     if not non_interactive:
         console.rule()
-
+    
     while True:
         try:
             start_prompt(session, config, copyable_blocks)
