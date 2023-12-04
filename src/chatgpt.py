@@ -188,11 +188,7 @@ def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    logger.info(
-        f"\nTotal tokens used: [green bold]{
-            prompt_tokens + completion_tokens}",
-        extra={"highlighter": None},
-    )
+    logger.info(f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",extra={"highlighter": None},)
 
     if model in PRICING_RATE:
         total_expense = calculate_expense(
@@ -241,8 +237,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             snippet_text = "\n".join(code_block_content)
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
-            formatted_code_block = f"```{
-                code_block_language}\n{snippet_text}\n```"
+            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
             console.print(f"Block {code_block_id}",
                           style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
