@@ -44,9 +44,9 @@ On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it
 
 On the first execution of the script, a [template](config.yaml) of the config file is automatically created. If a config file already exists but is missing any fields, default values are used for the missing fields.
 
-## Supplier
+## Suppliers
 
-You can set the supplier as `openai` or `azure` in the [config.yaml](config.ymal). Remember to modify the parameters corresponding to the supplier.
+You can set the supplier as `openai` (the default) or `azure` in the [config.yaml](config.ymal). Remember to set the parameters corresponding to the specific supplier.
 
 ## Models
 
@@ -67,6 +67,8 @@ ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to us
 Pricing is calculated as $/1000 tokens.
 
 Check [this page](https://platform.openai.com/docs/models) for the technical details of each model.
+
+Also note that, if you use Azure as a supplier, this pricing may not be accurate.
 
 ## Basic usage
 

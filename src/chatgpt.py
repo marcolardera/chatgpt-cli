@@ -1,18 +1,16 @@
 #!/bin/env python
 
 import atexit
-import pyperclip
-from typing import Optional
-
 import click
 import datetime
+import json
 import logging
 import os
+import pyperclip
+import re
 import requests
 import sys
 import yaml
-import json
-import re
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -20,6 +18,7 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
+from typing import Optional
 from xdg_base_dirs import xdg_config_home
 
 
@@ -30,8 +29,10 @@ SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
+OPENAI_BASE_ENDPOINT = "https://api.openai.com/v1"
+ENV_VAR = "OPENAI_API_KEY"
 
-# azure price is not accurate, it deponds on your subscription
+# Azure price is not accurate, it depends on your subscription
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-1106": {"prompt": 0.001, "completion": 0.002},
@@ -53,8 +54,7 @@ logging.basicConfig(
     level="INFO",
     format="%(message)s",
     handlers=[
-        RichHandler(show_time=False, show_level=False,
-                    show_path=False, markup=True)
+        RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
     ],
 )
 
@@ -70,8 +70,13 @@ console = Console()
 
 DEFAULT_CONFIG = {
     "supplier": "openai",
-    "OPENAI_MODEL": "gpt-4-32k",
-    "OPENAI_ENDPOINT": "https://api.openai.com/v1",
+    "api-key": "<INSERT YOUR  OPENAI API KEY HERE>",
+    "model": "gpt-3.5-turbo",
+    "azure_endpoint": "https://xxxx.openai.azure.com/",
+    "azure_api_version": "2023-07-01-preview",
+    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
+    "azure_deployment_name": "gpt-35-turbo",
+    "azure_deployment_name_eb": "text-embedding-ada-002",
     "temperature": 1,
     # 'max_tokens': 500,
     "markdown": True,
@@ -86,7 +91,7 @@ def load_config(config_file: str) -> dict:
     Read a YAML config file and returns its content as a dictionary.
     If the config file is missing, create one with default values.
     If the config file is present but missing keys, populate them with defaults.
-    """    
+    """
     # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
@@ -122,8 +127,7 @@ def get_last_save_file() -> str:
     """
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
     if files:
-        ts = [f.replace("chatgpt-session-", "").replace(".json", "")
-              for f in files]
+        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
         ts.sort()
         return ts[-1]
     return None
@@ -188,7 +192,10 @@ def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    logger.info(f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",extra={"highlighter": None},)
+    logger.info(
+        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
+        extra={"highlighter": None},
+    )
 
     if model in PRICING_RATE:
         total_expense = calculate_expense(
@@ -218,8 +225,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         return
 
     lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + \
-        max(code_blocks.keys(), default=0)
+    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
     code_block_open = False
     code_block_language = ""
     code_block_content = []
@@ -238,8 +244,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
             formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}",
-                          style="blue", justify="right")
+            console.print(f"Block {code_block_id}", style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
@@ -254,68 +259,6 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     elif regular_content:  # If there's any remaining regular content, print it
         console.print(Markdown("\n".join(regular_content)))
 
-def connection_test(config: dict) -> None:
-    """
-    Test the connection to the API
-    """
-    if config["supplier"] == "azure":
-        api_key = config["AZURE_OPENAI_API_KEY"]
-        # Base body parameters
-        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
-        api_version = config['AZURE_OPENAI_API_VERSION']
-        base_endpoint = config["AZURE_OPENAI_ENDPOINT"]
-    elif config["supplier"] == "openai":
-        api_key = config["OPENAI_API_KEY"]
-        model = config["OPENAI_MODEL"]
-        base_endpoint = config["OPENAI_ENDPOINT"]
-    else:
-        raise ValueError("Supplier must be either 'azure' or 'openai'")
-    messages = [{"role": "user", "content": "Hello, how are you?"}]
-    # Base body parameters
-    body = {
-        "model": model,
-        "temperature": config["temperature"],
-        "messages": messages,
-    }
-    # Optional parameters
-    if "max_tokens" in config:
-        body["max_tokens"] = config["max_tokens"]
-    if config["json_mode"]:
-        body["response_format"] = {"type": "json_object"}
-
-    try:
-        if config["supplier"] == "azure":
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": api_key,
-            }
-            r = requests.post(
-                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}", headers=headers, json=body
-            )
-        elif config["supplier"] == "openai":
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            }
-            r = requests.post(
-                f"{base_endpoint}/chat/completions", headers=headers, json=body
-            )
-    except requests.ConnectionError:
-        logger.error(
-            "[red bold]Connection error, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-    except requests.Timeout:
-        logger.error(
-            "[red bold]Connection timed out, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-
-    match r.status_code:
-        case 200:
-            logger.info(f"Connection Status: [green bold]{'Normal'}", extra={"highlighter": None})
 
 def start_prompt(
     session: PromptSession, config: dict, copyable_blocks: Optional[dict]
@@ -365,18 +308,18 @@ def start_prompt(
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
+    
     if config["supplier"] == "azure":
-        api_key = config["AZURE_OPENAI_API_KEY"]
-        # Base body parameters
-        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
-        api_version = config['AZURE_OPENAI_API_VERSION']
-        base_endpoint = config["AZURE_OPENAI_ENDPOINT"]
+        api_key = config["azure_api_key"]
+        model = config["azure_deployment_name"]
+        api_version = config["azure_api_version"]
+        base_endpoint = config["azure_endpoint"]
     elif config["supplier"] == "openai":
-        api_key = config["OPENAI_API_KEY"]
-        model = config["OPENAI_MODEL"]
-        base_endpoint = config["OPENAI_ENDPOINT"]
+        api_key = config["api-key"]
+        model = config["model"]
+        base_endpoint = OPENAI_BASE_ENDPOINT
     else:
-        raise ValueError("Supplier must be either 'azure' or 'openai'")
+        logger.error("Supplier must be either 'azure' or 'openai'")
 
     # Base body parameters
     body = {
@@ -397,7 +340,9 @@ def start_prompt(
                 "api-key": api_key,
             }
             r = requests.post(
-                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}", headers=headers, json=body
+                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+                headers=headers,
+                json=body,
             )
         elif config["supplier"] == "openai":
             headers = {
@@ -430,8 +375,7 @@ def start_prompt(
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                print_markdown(
-                    message_response["content"].strip(), copyable_blocks)
+                print_markdown(message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
@@ -457,13 +401,11 @@ def start_prompt(
                     )
                     raise EOFError
                     # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request",
-                         extra={"highlighter": None})
+            logger.error("[red bold]Invalid request", extra={"highlighter": None})
             raise EOFError
 
         case 401:
-            logger.error("[red bold]Invalid API Key",
-                         extra={"highlighter": None})
+            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
             raise EOFError
 
         case 429:
@@ -558,13 +500,21 @@ def main(
     # Order of precedence for API Key configuration:
     # Command line option > Environment variable > Configuration file
 
+    # If the environment variable is set overwrite the configuration
+    if os.environ.get(ENV_VAR):
+        config["api-key"] = os.environ[ENV_VAR].strip()
     # If the --key command line argument is used overwrite the configuration
     if api_key:
-        config["supplier"] = "openai"
-        config["OPENAI_API_KEY"] = api_key.strip()
+        if config["supplier"] == "openai":
+            config["api-key"] = api_key.strip()
+        else:
+            config["azure_api_key"] = api_key.strip()
     # If the --model command line argument is used overwrite the configuration
     if model:
-        config["OPENAI_MODEL"] = model.strip()
+        if config["supplier"] == "openai":
+            config["model"] = model.strip()
+        else:
+            config["azure_deployment_name"] = model.strip()
 
     config["non_interactive"] = non_interactive
 
@@ -576,25 +526,20 @@ def main(
     config["json_mode"] = json_mode
 
     copyable_blocks = {} if config["easy_copy"] else None
+
     if config["supplier"] == "azure":
-        model = config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+        model = config["azure_deployment_name"]
     elif config["supplier"] == "openai":
-        model = config["OPENAI_MODEL"]
-    else:
-        raise ValueError("Supplier must be either 'azure' or 'openai'")
+        model = config["model"]
+
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=model)
 
     logger.info(
         f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
     )
-    logger.info(
-        f"Model in use: [green bold]{model}", extra={"highlighter": None}
-    )
-    logger.info(
-        f"[green bold]{'Testing Connection Status......'}", extra={"highlighter": None}
-    )
-    connection_test(config)
+    logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
+
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
         add_markdown_system_message()
@@ -618,8 +563,7 @@ def main(
             global prompt_tokens, completion_tokens
             # If this feature is used --context is cleared
             messages.clear()
-            history_data = load_history_data(
-                os.path.join(SAVE_FOLDER, restore_file))
+            history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
             for message in history_data["messages"]:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
@@ -641,7 +585,7 @@ def main(
 
     if not non_interactive:
         console.rule()
-    
+
     while True:
         try:
             start_prompt(session, config, copyable_blocks)
