@@ -1,18 +1,16 @@
 #!/bin/env python
 
 import atexit
-import pyperclip
-from typing import Optional
-
 import click
 import datetime
+import json
 import logging
 import os
+import pyperclip
+import re
 import requests
 import sys
 import yaml
-import json
-import re
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
@@ -20,7 +18,9 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
+from typing import Optional
 from xdg_base_dirs import xdg_config_home
+
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -29,14 +29,19 @@ SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
-BASE_ENDPOINT = "https://api.openai.com/v1"
+OPENAI_BASE_ENDPOINT = "https://api.openai.com/v1"
 ENV_VAR = "OPENAI_API_KEY"
 
+# Azure price is not accurate, it depends on your subscription
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-1106": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-0613": {"prompt": 0.001, "completion": 0.002},
     "gpt-3.5-turbo-16k": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-1106": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-0613": {"prompt": 0.001, "completion": 0.002},
+    "gpt-35-turbo-16k": {"prompt": 0.001, "completion": 0.002},
     "gpt-4": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
     "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
@@ -64,8 +69,14 @@ completion_tokens = 0
 console = Console()
 
 DEFAULT_CONFIG = {
-    "api-key": "INSERT API KEY HERE",
+    "supplier": "openai",
+    "api-key": "<INSERT YOUR  OPENAI API KEY HERE>",
     "model": "gpt-3.5-turbo",
+    "azure_endpoint": "https://xxxx.openai.azure.com/",
+    "azure_api_version": "2023-07-01-preview",
+    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
+    "azure_deployment_name": "gpt-35-turbo",
+    "azure_deployment_name_eb": "text-embedding-ada-002",
     "temperature": 1,
     # 'max_tokens': 500,
     "markdown": True,
@@ -80,7 +91,7 @@ def load_config(config_file: str) -> dict:
     Read a YAML config file and returns its content as a dictionary.
     If the config file is missing, create one with default values.
     If the config file is present but missing keys, populate them with defaults.
-    """    
+    """
     # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
@@ -259,11 +270,6 @@ def start_prompt(
     # TODO: Refactor to avoid a global variables
     global prompt_tokens, completion_tokens
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {config['api-key']}",
-    }
-
     message = ""
 
     if config["non_interactive"]:
@@ -302,10 +308,22 @@ def start_prompt(
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
+    
+    if config["supplier"] == "azure":
+        api_key = config["azure_api_key"]
+        model = config["azure_deployment_name"]
+        api_version = config["azure_api_version"]
+        base_endpoint = config["azure_endpoint"]
+    elif config["supplier"] == "openai":
+        api_key = config["api-key"]
+        model = config["model"]
+        base_endpoint = OPENAI_BASE_ENDPOINT
+    else:
+        logger.error("Supplier must be either 'azure' or 'openai'")
 
     # Base body parameters
     body = {
-        "model": config["model"],
+        "model": model,
         "temperature": config["temperature"],
         "messages": messages,
     }
@@ -316,9 +334,24 @@ def start_prompt(
         body["response_format"] = {"type": "json_object"}
 
     try:
-        r = requests.post(
-            f"{BASE_ENDPOINT}/chat/completions", headers=headers, json=body
-        )
+        if config["supplier"] == "azure":
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": api_key,
+            }
+            r = requests.post(
+                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+                headers=headers,
+                json=body,
+            )
+        elif config["supplier"] == "openai":
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            r = requests.post(
+                f"{base_endpoint}/chat/completions", headers=headers, json=body
+            )
     except requests.ConnectionError:
         logger.error(
             "[red bold]Connection error, try again...", extra={"highlighter": None}
@@ -352,7 +385,7 @@ def start_prompt(
             messages.append(message_response)
             prompt_tokens += usage_response["prompt_tokens"]
             completion_tokens += usage_response["completion_tokens"]
-            save_history(config["model"], messages, prompt_tokens, completion_tokens)
+            save_history(model, messages, prompt_tokens, completion_tokens)
 
             if config["non_interactive"]:
                 # In non-interactive mode there is no looping back for a second prompt, you're done.
@@ -472,10 +505,16 @@ def main(
         config["api-key"] = os.environ[ENV_VAR].strip()
     # If the --key command line argument is used overwrite the configuration
     if api_key:
-        config["api-key"] = api_key.strip()
+        if config["supplier"] == "openai":
+            config["api-key"] = api_key.strip()
+        else:
+            config["azure_api_key"] = api_key.strip()
     # If the --model command line argument is used overwrite the configuration
     if model:
-        config["model"] = model.strip()
+        if config["supplier"] == "openai":
+            config["model"] = model.strip()
+        else:
+            config["azure_deployment_name"] = model.strip()
 
     config["non_interactive"] = non_interactive
 
@@ -488,12 +527,18 @@ def main(
 
     copyable_blocks = {} if config["easy_copy"] else None
 
+    if config["supplier"] == "azure":
+        model = config["azure_deployment_name"]
+    elif config["supplier"] == "openai":
+        model = config["model"]
+
     # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=config["model"])
+    atexit.register(display_expense, model=model)
 
     logger.info(
-        f"Model in use: [green bold]{config['model']}", extra={"highlighter": None}
+        f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
     )
+    logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
