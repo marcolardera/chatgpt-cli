@@ -95,12 +95,12 @@ def load_config(config_file: str) -> dict:
     # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        with open(config_file, "w") as file:
+        with open(config_file, "w", encoding= "utf-8") as file:
             yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
         logger.info(f"New config file initialized: [green bold]{config_file}")
 
     # Load existing config
-    with open(config_file) as file:
+    with open(config_file, encoding= "utf-8") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # Update the loaded config with any default values that are missing
@@ -115,7 +115,7 @@ def load_history_data(history_file: str) -> dict:
     """
     Read a session history json file and return its content
     """
-    with open(history_file) as file:
+    with open(history_file, encoding= "utf-8") as file:
         content = json.loads(file.read())
 
     return content
@@ -147,7 +147,7 @@ def save_history(
     """
     Save the conversation history in JSON format
     """
-    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w") as f:
+    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w", encoding= "utf-8") as f:
         json.dump(
             {
                 "model": model,
