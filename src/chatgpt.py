@@ -29,7 +29,7 @@ SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
-OPENAI_BASE_ENDPOINT = "https://api.openai.com/v1"
+OPENAI_BASE_ENDPOINT = os.environ.get("OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1")
 ENV_VAR = "OPENAI_API_KEY"
 
 # Azure price is not accurate, it depends on your subscription
