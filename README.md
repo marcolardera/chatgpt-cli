@@ -8,9 +8,9 @@ Simple script for chatting with ChatGPT from the command line, using the officia
 
 ## How to get an API Key
 
-Go to [platform.openai.com](https://platform.openai.com) and log-in with your OpenAI account (register if you don't have one). Click on your name initial in the top-right corner, then select *"View API keys"*. Finally click on *"Create new secret key"*. That's it.
+Go to [platform.openai.com](https://platform.openai.com) and log-in with your OpenAI account (register if you don't have one). Click on your name initial in the top-right corner, then select _"View API keys"_. Finally click on _"Create new secret key"_. That's it.
 
-You may also need to add a payment method, clicking on *Billing --> Payment methods*. New accounts should have some free credits, but adding a payment method may still be mandatory. For pricing, check [this page](https://openai.com/pricing).
+You may also need to add a payment method, clicking on _Billing --> Payment methods_. New accounts should have some free credits, but adding a payment method may still be mandatory. For pricing, check [this page](https://openai.com/pricing).
 
 ## Installation and essential configuration
 
@@ -30,15 +30,15 @@ pip install git+https://github.com/marcolardera/chatgpt-cli
 
 After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
 
-- Edit the `api-key` parameter in the *config.yaml* file (see paragraph below)
+- Edit the `api-key` parameter in the _config.yaml_ file (see paragraph below)
 - Set the environment variable `OPENAI_API_KEY` (Check your operating system's documentation on how to do this)
 - Use the command line option `--key` or `-k`
 
-If more then one API Key is provided, ChatGPT CLI follows this priority order: *Command line option > Environment variable > Configuration file*
+If more then one API Key is provided, ChatGPT CLI follows this priority order: _Command line option > Environment variable > Configuration file_
 
 ### Configuration file
 
-The configuration file *config.yaml* can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
+The configuration file _config.yaml_ can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
 
 On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). The default, if the variable is not set, should be the `~/.config` folder.
 
@@ -50,7 +50,7 @@ You can set the supplier as `openai` (the default) or `azure` in the [config.yam
 
 ## Models
 
-ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model` parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available options:
+ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model` parameter in the _config.yaml_ file ore use the `--model` command line option. Here is a list of all the available options:
 
 | Name                 | Pricing (input token) | Pricing(output token) |
 | -------------------- | --------------------- | --------------------- |
@@ -90,7 +90,7 @@ Add the `--multiline` (or `-ml`) flag in order to toggle multi-line input mode. 
 
 ## Context
 
-Use the `--context <FILE PATH>` command line option (or `-c` as a short version) in order to provide the model an initial context (technically a *system* message for ChatGPT). For example:
+Use the `--context <FILE PATH>` command line option (or `-c` as a short version) in order to provide the model an initial context (technically a _system_ message for ChatGPT). For example:
 
 `chatgpt-cli --context notes.txt`
 
@@ -134,7 +134,7 @@ In this case the content of `example_file` is sent directly to ChatGPT and the r
 
 ## JSON Mode
 
-*Note (2023-11-11):* This feature is only available for the `gpt-3.5-turbo-1106` and `gpt-4-1106-preview` models for now.
+_Note (2023-11-11):_ This feature is only available for the `gpt-3.5-turbo-1106` and `gpt-4-1106-preview` models for now.
 
 JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to always respond with a JSON to each request. You must ask for a JSON explicitly (if the first message does not include the word "json" an "Invalid request" response is returned) and, in general, describe the schema and the content type of the desired result. Be careful of not being too vague in the request because you may get a very long, random response (with higher expenses).
 
@@ -153,6 +153,28 @@ Check also my other little project [DALL-E CLI](https://github.com/marcolardera/
 `echo "Write the perfect prompt for an image generation model in order to represent a man wearing a banana costume" | chatgpt-cli -n | dall-e-cli -p`
 
 It works, despite not being 100% clear if it is useful or not.
+
+## Docker
+
+To use this application, make sure you have Docker and Docker Compose installed.
+
+### Build instructions
+
+```shell
+docker compose build chatgpt-cli
+```
+
+### Configuration for Docker
+
+Before running the application, create a .env file by copying the .env-sample file and set the OPENAI API key.
+
+### Run Docker image
+
+```shell
+docker compose run --rm --interactive chatgpt-cli
+```
+
+NOTE: all data and sessions will be saved within the `data/chatgpt-cli` folder.
 
 ## Contributing to this project
 

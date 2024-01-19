@@ -1,11 +1,11 @@
-version: '3'
+version: "3"
 
 services:
-  chatgpt:
+  chatgpt-cli:
     build: .
-    env_file:
-      .env
+    env_file: .env
     volumes:
-      - ./config.yaml:/app/config.yaml
       # data, context data
       - ./data:/data
+      # config file
+      - ./config.yaml:/data/chatgpt-cli/config.yaml
