@@ -1,8 +1,8 @@
 FROM python:3-slim
 
-LABEL "org.opencontainers.image.authors"="andrius@tcp.agency,karolis@tcp.agency"
-LABEL "org.opencontainers.image.source"="https://github.com/upfitai/ai-service-nodejs"
-LABEL "org.opencontainers.image.description"="CHATGPT"
+LABEL "org.opencontainers.image.authors"="41898282+github-actions[bot]@users.noreply.github.com"
+LABEL "org.opencontainers.image.source"="https://github.com/andrius/chatgpt-cli"
+LABEL "org.opencontainers.image.description"="chatgpt-cli client"
 
 WORKDIR /app
 COPY . ./

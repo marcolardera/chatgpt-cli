@@ -1,0 +1,71 @@
+# vim: set filetype=yaml ts=2 sw=2 sts=2 et:
+---
+name: "Build docker images"
+
+on:
+  push:
+
+  schedule:
+    # https://crontab.guru/every-week
+    - cron: "0 0 * * 0"
+
+defaults:
+  run:
+    shell: bash -euxo pipefail {0}
+
+jobs:
+  build-docker:
+    name: "Build docker images"
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub docker registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io --username $ --password-stdin
+
+      - name: Setup docker builer instance
+        run: |
+          BUILDX="$(docker buildx create)"
+          echo "BUILDX=${BUILDX}" >> "${GITHUB_ENV}"
+          docker buildx use "${BUILDX}"
+
+      - name: Build docker images
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository }}"
+
+          GIT_REF="$( echo -n "${{ github.ref }}" | awk '{ gsub(/^refs\/heads\//, ""); print }' )"
+          # Convert GIT_REF to lowercase;
+          # replace non-latin alphabet and special symobls to the '-';
+          # assign docker image tag 'latest' for master and main branches
+          TAG="$( \
+            echo -n "${GIT_REF}" | awk '{
+              gsub(/[^0-9A-Za-z]/, "-")
+              gsub(/^master|^main/, "latest")
+              print
+            }' \
+          )"
+          # Convert it to the lowercase
+          TAG="${TAG,,}"
+          # Timestamp in YYYYMMDD format for the additional docker image tag
+          TIMESTAMP="$(date +%Y%m%d)"
+
+          docker buildx build \
+            --push \
+            --platform "linux/amd64,linux/arm64" \
+            --pull \
+            --tag "${IMAGE_NAME}:${TAG}" \
+            --tag "${IMAGE_NAME}:${TAG}-${TIMESTAMP}" \
+            --file ./Dockerfile \
+            .
+
+      # Removes buildx on local machine if developer does use act tool
+      - name: Remove docker builder instance
+        if: always()
+        run: |
+          if [ "${BUILDX}" != "" ]; then
+            docker buildx rm "${BUILDX}"
+          fi
