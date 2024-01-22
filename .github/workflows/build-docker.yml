@@ -24,14 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GitHub docker registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io --username $ --password-stdin
-
       - name: Setup docker builer instance
         run: |
           BUILDX="$(docker buildx create)"
           echo "BUILDX=${BUILDX}" >> "${GITHUB_ENV}"
           docker buildx use "${BUILDX}"
+
+      - name: Log in to GitHub docker registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io --username ${{ github.actor }} --password-stdin
 
       - name: Build docker images
         run: |
