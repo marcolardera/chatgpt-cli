@@ -123,12 +123,17 @@ celerybeat.pid
 
 # Environments
 .env
+!.env-sample
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Docker workdir
+/data/
+!/data/.keep
 
 # Spyder project settings
 .spyderproject
