@@ -48,7 +48,8 @@ PRICING_RATE = {
     "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
     "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
     "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03}
+    "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
+    "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03}
 }
 
 logger = logging.getLogger("rich")

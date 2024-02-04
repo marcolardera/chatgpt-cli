@@ -54,15 +54,18 @@ ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to us
 
 | Name                 | Pricing (input token) | Pricing(output token) |
 | -------------------- | --------------------- | --------------------- |
-| `gpt-3.5-turbo`      | 0.001                 | 0.002                 |
-| `gpt-3.5-turbo-1106` | 0.001                 | 0.002                 |
-| `gpt-3.5-turbo-0613` | 0.001                 | 0.002                 |
-| `gpt-3.5-turbo-16k`  | 0.001                 | 0.002                 |
+| `gpt-3.5-turbo`      | 0.0005                | 0.0015                |
+| `gpt-3.5-turbo-0125` | 0.0005                | 0.0015                |
+| `gpt-3.5-turbo-1106` | 0.0005                | 0.0015                |
+| `gpt-3.5-turbo-0613` | 0.0005                | 0.0015                |
+| `gpt-3.5-turbo-16k`  | 0.0005                | 0.0015                |
 | `gpt-4`              | 0.03                  | 0.06                  |
 | `gpt-4-0613`         | 0.03                  | 0.06                  |
 | `gpt-4-32k`          | 0.06                  | 0.12                  |
 | `gpt-4-32k-0613`     | 0.06                  | 0.12                  |
 | `gpt-4-1106-preview` | 0.01                  | 0.03                  |
+| `gpt-4-0125-preview` | 0.01                  | 0.03                  |
+| `gpt-4-turbo-preview`| 0.01                  | 0.03                  |
 
 Pricing is calculated as $/1000 tokens.
 
@@ -134,7 +137,7 @@ In this case the content of `example_file` is sent directly to ChatGPT and the r
 
 ## JSON Mode
 
-*Note (2023-11-11):* This feature is only available for the `gpt-3.5-turbo-1106` and `gpt-4-1106-preview` models for now.
+*Note:* This feature is only available for the `gpt-3.5-turbo-0125` and `gpt-4-turbo-preview` models for now.
 
 JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to always respond with a JSON to each request. You must ask for a JSON explicitly (if the first message does not include the word "json" an "Invalid request" response is returned) and, in general, describe the schema and the content type of the desired result. Be careful of not being too vague in the request because you may get a very long, random response (with higher expenses).
 
