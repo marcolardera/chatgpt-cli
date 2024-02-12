@@ -86,6 +86,8 @@ DEFAULT_CONFIG = {
     "easy_copy": True,
     "non_interactive": False,
     "json_mode": False,
+    "use_proxy": True,
+    "proxy": "socks5://127.0.0.1:2080"
 }
 
 
@@ -264,7 +266,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
 
 
 def start_prompt(
-    session: PromptSession, config: dict, copyable_blocks: Optional[dict]
+    session: PromptSession, config: dict, copyable_blocks: Optional[dict], proxy: dict
 ) -> None:
     """
     Ask the user for input, build the request and perform it
@@ -346,6 +348,7 @@ def start_prompt(
                 f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
                 headers=headers,
                 json=body,
+                proxies=proxy
             )
         elif config["supplier"] == "openai":
             headers = {
@@ -353,7 +356,7 @@ def start_prompt(
                 "Authorization": f"Bearer {api_key}",
             }
             r = requests.post(
-                f"{base_endpoint}/chat/completions", headers=headers, json=body
+                f"{base_endpoint}/chat/completions", headers=headers, json=body, proxies=proxy
             )
     except requests.ConnectionError:
         logger.error(
@@ -500,6 +503,12 @@ def main(
 
     create_save_folder()
 
+    # check proxy setting
+    if config["use_proxy"]:
+        proxy = {"http":config["proxy"] , "https": config["proxy"]}
+    else:
+        proxy = None
+
     # Order of precedence for API Key configuration:
     # Command line option > Environment variable > Configuration file
 
@@ -591,7 +600,7 @@ def main(
 
     while True:
         try:
-            start_prompt(session, config, copyable_blocks)
+            start_prompt(session, config, copyable_blocks, proxy)
         except KeyboardInterrupt:
             continue
         except EOFError:
