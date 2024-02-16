@@ -29,7 +29,9 @@ SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
-OPENAI_BASE_ENDPOINT = os.environ.get("OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1")
+OPENAI_BASE_ENDPOINT = os.environ.get(
+    "OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1"
+)
 ENV_VAR = "OPENAI_API_KEY"
 
 # Azure price is not accurate, it depends on your subscription
@@ -49,7 +51,7 @@ PRICING_RATE = {
     "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
     "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03}
+    "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
 }
 
 logger = logging.getLogger("rich")
@@ -86,8 +88,8 @@ DEFAULT_CONFIG = {
     "easy_copy": True,
     "non_interactive": False,
     "json_mode": False,
-    "use_proxy": True,
-    "proxy": "socks5://127.0.0.1:2080"
+    "use_proxy": False,
+    "proxy": "socks5://127.0.0.1:2080",
 }
 
 
@@ -100,12 +102,12 @@ def load_config(config_file: str) -> dict:
     # If the config file does not exist, create one with default configurations
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        with open(config_file, "w", encoding= "utf-8") as file:
+        with open(config_file, "w", encoding="utf-8") as file:
             yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
         logger.info(f"New config file initialized: [green bold]{config_file}")
 
     # Load existing config
-    with open(config_file, encoding= "utf-8") as file:
+    with open(config_file, encoding="utf-8") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # Update the loaded config with any default values that are missing
@@ -120,7 +122,7 @@ def load_history_data(history_file: str) -> dict:
     """
     Read a session history json file and return its content
     """
-    with open(history_file, encoding= "utf-8") as file:
+    with open(history_file, encoding="utf-8") as file:
         content = json.loads(file.read())
 
     return content
@@ -152,7 +154,7 @@ def save_history(
     """
     Save the conversation history in JSON format
     """
-    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w", encoding= "utf-8") as f:
+    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w", encoding="utf-8") as f:
         json.dump(
             {
                 "model": model,
@@ -266,7 +268,10 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
 
 
 def start_prompt(
-    session: PromptSession, config: dict, copyable_blocks: Optional[dict], proxy: dict
+    session: PromptSession,
+    config: dict,
+    copyable_blocks: Optional[dict],
+    proxy: dict | None,
 ) -> None:
     """
     Ask the user for input, build the request and perform it
@@ -313,7 +318,7 @@ def start_prompt(
         raise KeyboardInterrupt
 
     messages.append({"role": "user", "content": message})
-    
+
     if config["supplier"] == "azure":
         api_key = config["azure_api_key"]
         model = config["azure_deployment_name"]
@@ -348,7 +353,7 @@ def start_prompt(
                 f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
                 headers=headers,
                 json=body,
-                proxies=proxy
+                proxies=proxy,
             )
         elif config["supplier"] == "openai":
             headers = {
@@ -356,7 +361,10 @@ def start_prompt(
                 "Authorization": f"Bearer {api_key}",
             }
             r = requests.post(
-                f"{base_endpoint}/chat/completions", headers=headers, json=body, proxies=proxy
+                f"{base_endpoint}/chat/completions",
+                headers=headers,
+                json=body,
+                proxies=proxy,
             )
     except requests.ConnectionError:
         logger.error(
@@ -505,7 +513,7 @@ def main(
 
     # check proxy setting
     if config["use_proxy"]:
-        proxy = {"http":config["proxy"] , "https": config["proxy"]}
+        proxy = {"http": config["proxy"], "https": config["proxy"]}
     else:
         proxy = None
 
