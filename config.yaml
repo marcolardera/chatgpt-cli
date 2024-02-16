@@ -17,3 +17,7 @@ temperature: 1
 #max_tokens: 500 
 markdown: true
 easy_copy: true
+
+# proxy setting
+use_proxy: false
+proxy: "socks5://127.0.0.1:2080" # supports http socks4 socks5
