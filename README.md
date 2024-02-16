@@ -12,6 +12,8 @@ Go to [platform.openai.com](https://platform.openai.com) and log-in with your Op
 
 You may also need to add a payment method, clicking on *Billing --> Payment methods*. New accounts should have some free credits, but adding a payment method may still be mandatory. For pricing, check [this page](https://openai.com/pricing).
 
+**Update (16/02/2024):** Some user accounts now requires to charge in advance the credit balance in order to use the OpenAI APIs. Check *Settings --> Billing* for that.
+
 ## Installation and essential configuration
 
 You need Python (at least version 3.10), Pip and Git installed on your system.
