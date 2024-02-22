@@ -48,7 +48,7 @@ On the first execution of the script, a [template](config.yaml) of the config fi
 
 ## Suppliers
 
-You can set the supplier as `openai` (the default) or `azure` in the [config.yaml](config.ymal). Remember to set the parameters corresponding to the specific supplier.
+You can set the supplier as `openai` (the default) or `azure` in the [config.yaml](config.yaml). Remember to set the parameters corresponding to the specific supplier.
 
 ## Models
 
