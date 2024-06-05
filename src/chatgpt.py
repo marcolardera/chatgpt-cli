@@ -11,16 +11,22 @@ import re
 import requests
 import sys
 import yaml
+import threading
+import time
+import itertools
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.application.current import get_app                                                                                                                      
+from prompt_toolkit.key_binding import KeyBindings 
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from typing import Optional
 from xdg_base_dirs import xdg_config_home
 from tabulate import tabulate
+from colorama import init, Fore
 
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
@@ -94,6 +100,30 @@ DEFAULT_CONFIG = {
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
 }
+
+# Initialize colorama
+init(autoreset=True)
+
+# Function to show spinner in a separate thread                                                                                                                                            
+                                                                                                                                                                             
+def show_spinner(stop_event, length_char=7, spinner_clear_length=9):                                                                                                      
+    # Initialize colorama                                                                                                                                                   
+    init(autoreset=True)                                                                                                                                                    
+                                                                                                                                                                            
+    # Using red, blue, green spinners                                                                                                                                       
+    spinner_colors = itertools.cycle([Fore.GREEN])                                                                                                     
+    spinner_char = ">"  # Using square block character for the spinner                                                                                                      
+                                                                                                                                                                            
+    while not stop_event.is_set():                                                                                                                                          
+        for i in range(length_char + 1):                                                                                                                                    
+            spinner = f"{next(spinner_colors)}{spinner_char * i:<{length_char}}"                                                                                          
+            sys.stdout.write(f"\r{spinner}")                                                                                                                                
+            sys.stdout.flush()                                                                                                                                              
+            time.sleep(0.1)                                                                                                                                                 
+                                                                                                                                                                            
+    # Clear spinner once done                                                                                                                                               
+    sys.stdout.write("\r" + " " * spinner_clear_length + "\r")                                                                                                              
+    sys.stdout.flush()
 
 
 def load_config(config_file: str) -> dict:
@@ -219,17 +249,14 @@ def display_expense(model: str) -> None:
             f"[red bold]No expense estimate available for model {model}",
             extra={"highlighter": None},
         )
-    # 表格数据
     table_data = [
         ["Token Type", "Count", "Price"],
         ["Prompt Tokens", prompt_tokens, prompt_expense],
         ["Total Completion Tokens", completion_tokens, completion_expense],
         ["Total Tokens", prompt_tokens + completion_tokens, total_expense]
     ]
-    # 将表格格式化为字符串
     table_str = tabulate(table_data, headers="firstrow", tablefmt="grid")
 
-    # 使用logger打印表格
     logger.info(table_str)
     console.rule(f"[bold green]ChatGPT CLI End")
 
@@ -300,10 +327,7 @@ def start_prompt(
     if config["non_interactive"]:
         message = sys.stdin.read()
     else:
-        message = session.prompt(
-            HTML(f"<b >>>> </b>")
-        )
-
+        message = session.prompt(HTML('<b><ansiblue>>>> </ansiblue></b>'))
     if message.lower().strip() == "/q":
         raise EOFError
     if message.lower() == "":
@@ -357,7 +381,10 @@ def start_prompt(
         body["max_tokens"] = config["max_tokens"]
     if config["json_mode"]:
         body["response_format"] = {"type": "json_object"}
-
+    stop_spinner = threading.Event()
+    spinner_thread = threading.Thread(
+        target=show_spinner, args=(stop_spinner,))
+    spinner_thread.start()
     try:
         if config["supplier"] == "azure":
             headers = {
@@ -382,18 +409,22 @@ def start_prompt(
                 proxies=proxy,
             )
     except requests.ConnectionError:
+        stop_spinner.set()
         logger.error(
             "[red bold]Connection error, try again...", extra={"highlighter": None}
         )
         messages.pop()
         raise KeyboardInterrupt
     except requests.Timeout:
+        stop_spinner.set()
         logger.error(
             "[red bold]Connection timed out, try again...", extra={"highlighter": None}
         )
         messages.pop()
         raise KeyboardInterrupt
-
+    finally:
+        stop_spinner.set()
+        spinner_thread.join()
     match r.status_code:
         case 200:
             response = r.json()
