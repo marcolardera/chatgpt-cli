@@ -201,7 +201,7 @@ def display_expense(model: str) -> None:
     Given the model used, display total tokens used and estimated expense
     """
     logger.info(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
+        f"\n[green blue]Total Prompt tokens used: {prompt_tokens} \n[green red]Total Completion tokens used: {completion_tokens}\n[green bold]Total tokens used: {prompt_tokens + completion_tokens} ",
         extra={"highlighter": None},
     )
 
@@ -282,12 +282,13 @@ def start_prompt(
     global prompt_tokens, completion_tokens
 
     message = ""
-
+    current_time_Human = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    console.rule(f"[bold blue]Human | {current_time_Human}", style="blue")
     if config["non_interactive"]:
         message = sys.stdin.read()
     else:
         message = session.prompt(
-            HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>")
+            HTML(f"<b >>>> </b>")
         )
 
     if message.lower().strip() == "/q":
@@ -386,7 +387,11 @@ def start_prompt(
 
             message_response = response["choices"][0]["message"]
             usage_response = response["usage"]
-
+            current_time_Agent = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            current_completions_tokens=usage_response["completion_tokens"]
+            current_prompt_tokens=usage_response["prompt_tokens"]
+            console.rule(f"Prompt Tokens: [bold green]{current_prompt_tokens}", style="blue")
+            console.rule(f"[bold red]Agent | {current_time_Agent}", style="bold red")
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
@@ -395,10 +400,10 @@ def start_prompt(
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
                 console.line()
-
             # Update message history and token counters
+            console.rule(f"Completion Tokens (Current): [bold green]{current_completions_tokens}", style="red")
             messages.append(message_response)
-            prompt_tokens += usage_response["prompt_tokens"]
+            prompt_tokens = usage_response["prompt_tokens"]
             completion_tokens += usage_response["completion_tokens"]
             save_history(model, messages, prompt_tokens, completion_tokens)
 
