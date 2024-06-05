@@ -21,3 +21,4 @@ wcwidth==0.2.6
 xdg-base-dirs~=6.0.0
 pyperclip==1.8.2
 PySocks==1.7.1
+tabulate
