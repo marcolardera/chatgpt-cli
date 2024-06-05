@@ -20,6 +20,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from typing import Optional
 from xdg_base_dirs import xdg_config_home
+from tabulate import tabulate
 
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
@@ -60,7 +61,8 @@ logging.basicConfig(
     level="INFO",
     format="%(message)s",
     handlers=[
-        RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
+        RichHandler(show_time=False, show_level=False,
+                    show_path=False, markup=True)
     ],
 )
 
@@ -135,7 +137,8 @@ def get_last_save_file() -> str:
     """
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
     if files:
-        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
+        ts = [f.replace("chatgpt-session-", "").replace(".json", "")
+              for f in files]
         ts.sort()
         return ts[-1]
     return None
@@ -182,45 +185,53 @@ def calculate_expense(
     completion_tokens: int,
     prompt_pricing: float,
     completion_pricing: float,
-) -> float:
+) -> tuple:
+    """                                                                                                                                                                     
+    Calculate the total expense, prompt expense, and completion expense,                                                                                                    
+    given the number of tokens and the pricing rates                                                                                                                        
     """
-    Calculate the expense, given the number of tokens and the pricing rates
-    """
-    expense = ((prompt_tokens / 1000) * prompt_pricing) + (
-        (completion_tokens / 1000) * completion_pricing
-    )
+    prompt_expense = (prompt_tokens / 1000) * prompt_pricing
+    completion_expense = (completion_tokens / 1000) * completion_pricing
+    total_expense = prompt_expense + completion_expense
 
     # Format to display in decimal notation rounded to 6 decimals
-    expense = "{:.6f}".format(round(expense, 6))
+    prompt_expense = "{:.6f}".format(round(prompt_expense, 6))
+    completion_expense = "{:.6f}".format(round(completion_expense, 6))
+    total_expense = "{:.6f}".format(round(total_expense, 6))
 
-    return expense
+    return total_expense, prompt_expense, completion_expense
 
 
 def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    logger.info(
-        f"\n[green blue]Total Prompt tokens used: {prompt_tokens} \n[green red]Total Completion tokens used: {completion_tokens}\n[green bold]Total tokens used: {prompt_tokens + completion_tokens} ",
-        extra={"highlighter": None},
-    )
-
+    console.rule(f"[bold green]Usage and Expense")
     if model in PRICING_RATE:
-        total_expense = calculate_expense(
+        total_expense, prompt_expense, completion_expense = calculate_expense(
             prompt_tokens,
             completion_tokens,
             PRICING_RATE[model]["prompt"],
             PRICING_RATE[model]["completion"],
-        )
-        logger.info(
-            f"Estimated expense: [green bold]${total_expense}",
-            extra={"highlighter": None},
         )
     else:
         logger.warning(
             f"[red bold]No expense estimate available for model {model}",
             extra={"highlighter": None},
         )
+    # 表格数据
+    table_data = [
+        ["Token Type", "Count", "Price"],
+        ["Prompt Tokens", prompt_tokens, prompt_expense],
+        ["Total Completion Tokens", completion_tokens, completion_expense],
+        ["Total Tokens", prompt_tokens + completion_tokens, total_expense]
+    ]
+    # 将表格格式化为字符串
+    table_str = tabulate(table_data, headers="firstrow", tablefmt="grid")
+
+    # 使用logger打印表格
+    logger.info(table_str)
+    console.rule(f"[bold green]ChatGPT CLI End")
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
@@ -233,7 +244,8 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         return
 
     lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
+    code_block_id = 0 if code_blocks is None else 1 + \
+        max(code_blocks.keys(), default=0)
     code_block_open = False
     code_block_language = ""
     code_block_content = []
@@ -252,7 +264,8 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
             formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
+            console.print(f"Block {code_block_id}",
+                          style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
@@ -388,20 +401,24 @@ def start_prompt(
             message_response = response["choices"][0]["message"]
             usage_response = response["usage"]
             current_time_Agent = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            current_completions_tokens=usage_response["completion_tokens"]
-            current_prompt_tokens=usage_response["prompt_tokens"]
-            console.rule(f"Prompt Tokens: [bold green]{current_prompt_tokens}", style="blue")
-            console.rule(f"[bold red]Agent | {current_time_Agent}", style="bold red")
+            current_completions_tokens = usage_response["completion_tokens"]
+            current_prompt_tokens = usage_response["prompt_tokens"]
+            console.rule(
+                f"[bold blue][{current_prompt_tokens}]", style="blue")
+            console.rule(
+                f"[bold red]Agent | {current_time_Agent}", style="bold red")
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                print_markdown(message_response["content"].strip(), copyable_blocks)
+                print_markdown(
+                    message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
                 console.line()
             # Update message history and token counters
-            console.rule(f"Completion Tokens (Current): [bold green]{current_completions_tokens}", style="red")
+            console.rule(
+                f"[bold red][{current_completions_tokens}]", style="red")
             messages.append(message_response)
             prompt_tokens = usage_response["prompt_tokens"]
             completion_tokens += usage_response["completion_tokens"]
@@ -421,11 +438,13 @@ def start_prompt(
                     )
                     raise EOFError
                     # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request", extra={"highlighter": None})
+            logger.error("[red bold]Invalid request",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 401:
-            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
+            logger.error("[red bold]Invalid API Key",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 429:
@@ -497,8 +516,7 @@ def main(
     # If non interactive suppress the logging messages
     if non_interactive:
         logger.setLevel("ERROR")
-
-    logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
+    console.rule(f"[bold green]ChatGPT CLI Start")
 
     history = FileHistory(HISTORY_FILE)
 
@@ -564,7 +582,8 @@ def main(
     logger.info(
         f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
     )
-    logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
+    logger.info(f"Model in use: [green bold]{model}", extra={
+                "highlighter": None})
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"]:
@@ -589,7 +608,8 @@ def main(
             global prompt_tokens, completion_tokens
             # If this feature is used --context is cleared
             messages.clear()
-            history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
+            history_data = load_history_data(
+                os.path.join(SAVE_FOLDER, restore_file))
             for message in history_data["messages"]:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
