@@ -18,8 +18,8 @@ import itertools
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.application.current import get_app                                                                                                                      
-from prompt_toolkit.key_binding import KeyBindings 
+from prompt_toolkit.application.current import get_app
+from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
@@ -104,25 +104,26 @@ DEFAULT_CONFIG = {
 # Initialize colorama
 init(autoreset=True)
 
-# Function to show spinner in a separate thread                                                                                                                                            
-                                                                                                                                                                             
-def show_spinner(stop_event, length_char=7, spinner_clear_length=9):                                                                                                      
-    # Initialize colorama                                                                                                                                                   
-    init(autoreset=True)                                                                                                                                                    
-                                                                                                                                                                            
-    # Using red, blue, green spinners                                                                                                                                       
-    spinner_colors = itertools.cycle([Fore.GREEN])                                                                                                     
-    spinner_char = ">"  # Using square block character for the spinner                                                                                                      
-                                                                                                                                                                            
-    while not stop_event.is_set():                                                                                                                                          
-        for i in range(length_char + 1):                                                                                                                                    
-            spinner = f"{next(spinner_colors)}{spinner_char * i:<{length_char}}"                                                                                          
-            sys.stdout.write(f"\r{spinner}")                                                                                                                                
-            sys.stdout.flush()                                                                                                                                              
-            time.sleep(0.1)                                                                                                                                                 
-                                                                                                                                                                            
-    # Clear spinner once done                                                                                                                                               
-    sys.stdout.write("\r" + " " * spinner_clear_length + "\r")                                                                                                              
+# Function to show spinner in a separate thread
+
+
+def show_spinner(stop_event, length_char=7, spinner_clear_length=9):
+    # Initialize colorama
+    init(autoreset=True)
+
+    # Using red, blue, green spinners
+    spinner_colors = itertools.cycle([Fore.GREEN])
+    spinner_char = ">"  # Using square block character for the spinner
+
+    while not stop_event.is_set():
+        for i in range(length_char + 1):
+            spinner = f"{next(spinner_colors)}{spinner_char * i:<{length_char}}"
+            sys.stdout.write(f"\r{spinner}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    # Clear spinner once done
+    sys.stdout.write("\r" + " " * spinner_clear_length + "\r")
     sys.stdout.flush()
 
 
