@@ -206,7 +206,8 @@ def add_markdown_system_message() -> None:
     """
     Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
     """
-    instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    instruction = f"You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture. Current date: {current_date}. Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
     messages.append({"role": "system", "content": instruction})
 
 
