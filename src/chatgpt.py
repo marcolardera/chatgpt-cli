@@ -1,38 +1,40 @@
 #!/bin/env python
 
 import atexit
-import click
 import datetime
 import json
 import logging
 import os
-import pyperclip
 import re
-import requests
 import sys
-import yaml
-
 from pathlib import Path
+from typing import Optional
+
+import click
+import pyperclip
+import requests
+import yaml
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
-from typing import Optional
 from xdg_base_dirs import xdg_config_home
-
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
 HISTORY_FILE = BASE / "history"
 SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
-    "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
+        "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
 )
 OPENAI_BASE_ENDPOINT = os.environ.get(
     "OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1"
 )
-ENV_VAR = "OPENAI_API_KEY"
+CHAT_API_KEY = "CHAT_API_KEY"
+
+ANTHROPIC_BASE_ENDPOINT = os.environ.get("ANTHROPIC_BASE_ENDPOINT", "https://api.anthropic.com/v1")
+ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 
 # Azure price is not accurate, it depends on your subscription
 PRICING_RATE = {
@@ -63,7 +65,6 @@ logging.basicConfig(
         RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
     ],
 )
-
 
 # Initialize the messages history list
 # It's mandatory to pass it at each API call in order to have a conversation
@@ -150,7 +151,7 @@ def create_save_folder() -> None:
 
 
 def save_history(
-    model: str, messages: list, prompt_tokens: int, completion_tokens: int
+        model: str, messages: list, prompt_tokens: int, completion_tokens: int
 ) -> None:
     """
     Save the conversation history in JSON format
@@ -178,16 +179,16 @@ def add_markdown_system_message() -> None:
 
 
 def calculate_expense(
-    prompt_tokens: int,
-    completion_tokens: int,
-    prompt_pricing: float,
-    completion_pricing: float,
+        prompt_tokens: int,
+        completion_tokens: int,
+        prompt_pricing: float,
+        completion_pricing: float,
 ) -> float:
     """
     Calculate the expense, given the number of tokens and the pricing rates
     """
     expense = ((prompt_tokens / 1000) * prompt_pricing) + (
-        (completion_tokens / 1000) * completion_pricing
+            (completion_tokens / 1000) * completion_pricing
     )
 
     # Format to display in decimal notation rounded to 6 decimals
@@ -269,10 +270,10 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
 
 
 def start_prompt(
-    session: PromptSession,
-    config: dict,
-    copyable_blocks: Optional[dict],
-    proxy: dict | None,
+        session: PromptSession,
+        config: dict,
+        copyable_blocks: Optional[dict],
+        proxy: dict | None,
 ) -> None:
     """
     Ask the user for input, build the request and perform it
@@ -320,17 +321,22 @@ def start_prompt(
 
     messages.append({"role": "user", "content": message})
 
-    if config["supplier"] == "azure":
-        api_key = config["azure_api_key"]
-        model = config["azure_deployment_name"]
-        api_version = config["azure_api_version"]
-        base_endpoint = config["azure_endpoint"]
-    elif config["supplier"] == "openai":
-        api_key = config["api-key"]
-        model = config["model"]
-        base_endpoint = OPENAI_BASE_ENDPOINT
-    else:
-        logger.error("Supplier must be either 'azure' or 'openai'")
+    match config["supplier"]:
+        case "azure":
+            api_key = config["azure_api_key"]
+            model = config["azure_deployment_name"]
+            api_version = config["azure_api_version"]
+            base_endpoint = config["azure_endpoint"]
+        case "openai":
+            api_key = config["api-key"]
+            model = config["model"]
+            base_endpoint = OPENAI_BASE_ENDPOINT
+        case "anthropic":
+            api_key = config["api-key"]
+            model = config["model"]
+            base_endpoint = ANTHROPIC_BASE_ENDPOINT
+        case _:
+            NotImplementedError("Only support supplier 'azure', 'openai' and 'anthropic'")
 
     # Base body parameters
     body = {
@@ -345,28 +351,40 @@ def start_prompt(
         body["response_format"] = {"type": "json_object"}
 
     try:
-        if config["supplier"] == "azure":
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": api_key,
-            }
-            r = requests.post(
-                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
-                headers=headers,
-                json=body,
-                proxies=proxy,
-            )
-        elif config["supplier"] == "openai":
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            }
-            r = requests.post(
-                f"{base_endpoint}/chat/completions",
-                headers=headers,
-                json=body,
-                proxies=proxy,
-            )
+        match config["supplier"]:
+            case "azure":
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": api_key,
+                }
+                r = requests.post(
+                    f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+                    headers=headers,
+                    json=body,
+                    proxies=proxy,
+                )
+            case "openai":
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                }
+                r = requests.post(
+                    f"{base_endpoint}/chat/completions",
+                    headers=headers,
+                    json=body,
+                    proxies=proxy,
+                )
+            case "anthropic":
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                }
+                r = requests.post(
+                    f"{base_endpoint}/messages",
+                    headers=headers,
+                    json=body,
+                    proxies=proxy,
+                )
     except requests.ConnectionError:
         logger.error(
             "[red bold]Connection error, try again...", extra={"highlighter": None}
@@ -453,7 +471,7 @@ def start_prompt(
                 extra={"highlighter": None},
             )
             logger.error(r.json(), extra={"highlighter": None})
-            raise EOFError
+            r.raise_for_status()
 
 
 @click.command()
@@ -486,8 +504,12 @@ def start_prompt(
 @click.option(
     "-j", "--json", "json_mode", is_flag=True, help="Activate json response mode"
 )
+@click.option(
+    "-s", "--supplier", "supplier", type=click.Choice(["openai", "azure", "anthropic"]), default="openai",
+    help="Set the model supplier"
+)
 def main(
-    context, api_key, model, multiline, restore, non_interactive, json_mode
+        context, api_key, model, multiline, restore, non_interactive, json_mode, supplier
 ) -> None:
     # If non interactive suppress the logging messages
     if non_interactive:
@@ -513,30 +535,25 @@ def main(
     create_save_folder()
 
     # check proxy setting
-    if config["use_proxy"]:
-        proxy = {"http": config["proxy"], "https": config["proxy"]}
-    else:
-        proxy = None
+    proxy = {"http": config["proxy"], "https": config["proxy"]} if config["use_proxy"] else None
 
     # Order of precedence for API Key configuration:
     # Command line option > Environment variable > Configuration file
 
     # If the environment variable is set overwrite the configuration
-    if os.environ.get(ENV_VAR):
-        config["api-key"] = os.environ[ENV_VAR].strip()
+    if API_KEY := os.environ.get(CHAT_API_KEY, os.environ.get("OPENAI_API_KEY")):  # for backward compatibility
+        config["api-key"] = API_KEY.strip()
     # If the --key command line argument is used overwrite the configuration
     if api_key:
-        if config["supplier"] == "openai":
-            config["api-key"] = api_key.strip()
-        else:
-            config["azure_api_key"] = api_key.strip()
+        config["api-key"] = api_key.strip()
     # If the --model command line argument is used overwrite the configuration
     if model:
-        if config["supplier"] == "openai":
-            config["model"] = model.strip()
+        if config["supplier"] != "azure":
+            model = config["model"] = model.strip()
         else:
-            config["azure_deployment_name"] = model.strip()
+            model = config["azure_deployment_name"] = model.strip()
 
+    config["supplier"] = supplier
     config["non_interactive"] = non_interactive
 
     # Do not emit markdown in this case; ctrl character formatting interferes in several contexts including json
@@ -547,11 +564,6 @@ def main(
     config["json_mode"] = json_mode
 
     copyable_blocks = {} if config["easy_copy"] else None
-
-    if config["supplier"] == "azure":
-        model = config["azure_deployment_name"]
-    elif config["supplier"] == "openai":
-        model = config["model"]
 
     # Run the display expense function when exiting the script
     atexit.register(display_expense, model=model)
