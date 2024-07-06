@@ -39,6 +39,7 @@ MAX_TOKENS = 1024  # TODO: add to config
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
 # Azure price is not accurate, it depends on your subscription
+# TODO: move unit to per 1M tokens (currently per 1K tokens)
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
     "gpt-3.5-turbo-0125": {"prompt": 0.0005, "completion": 0.0015},
@@ -56,7 +57,12 @@ PRICING_RATE = {
     "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4o": {"prompt": 0.005, "completion": 0.015}
+    "gpt-4o": {"prompt": 0.005, "completion": 0.015},
+    # ref: https://docs.anthropic.com/en/docs/about-claude/models
+    "claude-3-5-sonnet-20240620": {"prompt": 0.003, "completion": 0.015},
+    "claude-3-opus-20240229": {"prompt": 0.015, "completion": 0.075},
+    "claude-3-sonnet-20240229": {"prompt": 0.003, "completion": 0.015},
+    "claude-3-haiku-20240307": {"prompt": 0.00025, "completion": 0.00125},
 }
 
 logger = logging.getLogger("rich")
