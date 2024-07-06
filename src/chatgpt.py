@@ -35,6 +35,8 @@ CHAT_API_KEY = "CHAT_API_KEY"
 
 ANTHROPIC_BASE_ENDPOINT = os.environ.get("ANTHROPIC_BASE_ENDPOINT", "https://api.anthropic.com/v1")
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
+MAX_TOKENS = 1024  # TODO: add to config
+SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
 # Azure price is not accurate, it depends on your subscription
 PRICING_RATE = {
@@ -174,8 +176,7 @@ def add_markdown_system_message() -> None:
     """
     Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
     """
-    instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
-    messages.append({"role": "system", "content": instruction})
+    messages.append({"role": "system", "content": SYSTEM_MARKDOWN_INSTRUCTION})
 
 
 def calculate_expense(
@@ -375,9 +376,13 @@ def start_prompt(
                     proxies=proxy,
                 )
             case "anthropic":
+                body |= {"max_tokens": MAX_TOKENS}
+                if config["markdown"]:
+                    body |= {"system": SYSTEM_MARKDOWN_INSTRUCTION}
                 headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
+                    "content-type": "application/json",
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
                 }
                 r = requests.post(
                     f"{base_endpoint}/messages",
@@ -402,22 +407,32 @@ def start_prompt(
         case 200:
             response = r.json()
 
-            message_response = response["choices"][0]["message"]
-            usage_response = response["usage"]
+            match config["supplier"]:
+                case "anthropic":
+                    response_message = {
+                        "content": response["content"][0]["text"],
+                        "role": "assistant",
+                    }
+                    _input_tokens = response["usage"]["input_tokens"]
+                    _output_tokens = response["usage"]["output_tokens"]
+                case _:
+                    response_message = response["choices"][0]["message"]
+                    _input_tokens = response["usage"]["prompt_tokens"]
+                    _output_tokens = response["usage"]["completion_tokens"]
 
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                print_markdown(message_response["content"].strip(), copyable_blocks)
+                print_markdown(response_message["content"].strip(), copyable_blocks)
             else:
-                print(message_response["content"].strip())
+                print(response_message["content"].strip())
             if not config["non_interactive"]:
                 console.line()
 
             # Update message history and token counters
-            messages.append(message_response)
-            prompt_tokens += usage_response["prompt_tokens"]
-            completion_tokens += usage_response["completion_tokens"]
+            messages.append(response_message)
+            prompt_tokens += _input_tokens
+            completion_tokens += _output_tokens
             save_history(model, messages, prompt_tokens, completion_tokens)
 
             if config["non_interactive"]:
@@ -427,14 +442,16 @@ def start_prompt(
         case 400:
             response = r.json()
             if "error" in response:
-                if response["error"]["code"] == "context_length_exceeded":
+                if "code" in response["error"] and response["error"]["code"] == "context_length_exceeded":
                     logger.error(
                         "[red bold]Maximum context length exceeded",
                         extra={"highlighter": None},
                     )
                     raise EOFError
                     # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request", extra={"highlighter": None})
+            logger.error(
+                f"[red bold]Invalid request with response: '{response}', header: '{r.headers}, and body: '{r.request.body}'",
+                extra={"highlighter": None})
             raise EOFError
 
         case 401:
@@ -574,7 +591,7 @@ def main(
     logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
 
     # Add the system message for code blocks in case markdown is enabled in the config file
-    if config["markdown"]:
+    if config["markdown"] and config["supplier"] != "anthropic":
         add_markdown_system_message()
 
     # Context from the command line option
