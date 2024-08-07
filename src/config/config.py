@@ -10,7 +10,10 @@ SAVE_FOLDER = BASE / "session-history"
 
 DEFAULT_CONFIG = {
     "supplier": "anthropic",
-    "api-key": "<INSERT YOUR  ANTHROPIC API KEY HERE>",
+    "openai_api_key": "<INSERT YOUR OPENAI API KEY HERE>",
+    "anthropic_api_key": "<INSERT YOUR ANTHROPIC API KEY HERE>",
+    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
+    "gemini_api_key": "<INSERT YOUR GEMINI API KEY HERE>",
     "model": "claude-3-5-sonnet-20240620",
     "temperature": 0.7,
     "markdown": True,
@@ -23,7 +26,6 @@ DEFAULT_CONFIG = {
     "anthropic_endpoint": "https://api.anthropic.com/v1",
     "azure_endpoint": "https://xxxx.openai.azure.com/",
     "azure_api_version": "2023-07-01-preview",
-    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
     "azure_deployment_name": "gpt-35-turbo",
     "azure_deployment_name_eb": "text-embedding-ada-002",
     "storage_format": "markdown",
