@@ -31,28 +31,48 @@ DEFAULT_CONFIG = {
     "storage_format": "markdown",
 }
 
+VALID_MODELS = {
+    "anthropic": [
+        "claude-3-opus-20240229",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-haiku-20240307",
+        "claude-2.1",
+        "claude-2.0",
+        "claude-instant-1.2",
+    ],
+    "openai": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo",
+        "gpt-4",
+        "gpt-3.5-turbo",
+        "dall-e",
+        "tts",
+        "whisper",
+        "embeddings",
+        "moderation",
+        "gpt-base",
+    ],
+}
+
 PRICING_RATE = {
-    "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-0125": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-1106": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-0613": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-16k": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-1106": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-0613": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-16k": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-4": {"prompt": 0.03, "completion": 0.06},
-    "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
-    "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
-    "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
-    "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4o": {"prompt": 0.005, "completion": 0.015},
-    "claude-3-5-sonnet-20240620": {"prompt": 0.003, "completion": 0.015},
-    "claude-3-opus-20240229": {"prompt": 0.015, "completion": 0.075},
-    "claude-3-sonnet-20240229": {"prompt": 0.003, "completion": 0.015},
-    "claude-3-haiku-20240307": {"prompt": 0.00025, "completion": 0.00125},
+    "claude-3-opus-20240229": {"prompt": 15.00, "completion": 75.00},
+    "claude-3-5-sonnet-20240620": {"prompt": 3.00, "completion": 15.00},
+    "claude-3-haiku-20240307": {"prompt": 0.25, "completion": 1.25},
+    "claude-2.1": {"prompt": 8.00, "completion": 24.00},
+    "claude-2.0": {"prompt": 8.00, "completion": 24.00},
+    "claude-instant-1.2": {"prompt": 0.80, "completion": 2.40},
+    "gpt-4o": {"prompt": 5.00, "completion": 15.00},
+    "gpt-4o-mini": {"prompt": 0.15, "completion": 0.60},
+    "gpt-4-turbo": {"prompt": 0.35, "completion": 1.05},
+    "gpt-4": {"prompt": 0.35, "completion": 1.05},
+    "gpt-3.5-turbo": {"prompt": 0.35, "completion": 1.05},
+    "dall-e": {"prompt": 0.50, "completion": 1.50},
+    "tts": {"prompt": 0.50, "completion": 1.50},
+    "whisper": {"prompt": 0.50, "completion": 1.50},
+    "embeddings": {"prompt": 0.50, "completion": 1.50},
+    "moderation": {"prompt": 0.50, "completion": 1.50},
+    "gpt-base": {"prompt": 0.50, "completion": 1.50},
 }
 
 
@@ -61,7 +81,7 @@ def load_config(config_file: str) -> dict:
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
         with open(config_file, "w", encoding="utf-8") as file:
             yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
-        print(f"New config file initizalized: {config_file}")
+        print(f"New config file initialized: {config_file}")
 
     with open(config_file, encoding="utf-8") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)

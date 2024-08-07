@@ -21,6 +21,7 @@ from config.config import (
     HISTORY_FILE,
     SAVE_FOLDER,
     PRICING_RATE,
+    VALID_MODELS,
 )
 from prompt.prompt import (
     start_prompt,
@@ -85,7 +86,15 @@ click.rich_click.OPTION_GROUPS = {
     multiple=True,
 )
 @click.option("-k", "--key", "api_key", help="Set the API Key")
-@click.option("-m", "--model", "model", help="Set the model")
+@click.option(
+    "-m",
+    "--model",
+    "model",
+    type=click.Choice(
+        [model for supplier in VALID_MODELS.values() for model in supplier]
+    ),
+    help="Set the model",
+)
 @click.option(
     "-ml", "--multiline", "multiline", is_flag=True, help="Use the multiline input mode"
 )
@@ -171,6 +180,13 @@ def main(
             model = config["model"] = model.strip()
         else:
             model = config["azure_deployment_name"] = model.strip()
+
+    if model and model not in VALID_MODELS[supplier]:
+        logger.error(
+            f"[red bold]Invalid model for supplier {supplier}",
+            extra={"highlighter": None},
+        )
+        sys.exit(1)
 
     config["supplier"] = supplier
     config["non_interactive"] = non_interactive
