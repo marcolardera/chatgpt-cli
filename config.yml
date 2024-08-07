@@ -1,0 +1,41 @@
+---
+# Supplier: openai, azure, anthropic, gemini
+supplier: "anthropic"
+
+# API Keys
+openai_api_key: "<INSERT YOUR OPENAI API KEY HERE>"
+anthropic_api_key: "<INSERT YOUR ANTHROPIC API KEY HERE>"
+azure_api_key: "<INSERT YOUR AZURE API KEY HERE>"
+gemini_api_key: "<INSERT YOUR GEMINI API KEY HERE>"
+
+# Model selection
+model: "claude-3-5-sonnet-20240620"
+
+# OpenAI specific settings
+openai_endpoint: "https://api.openai.com/v1"
+
+# Anthropic specific settings
+anthropic_endpoint: "https://api.anthropic.com/v1"
+
+# Gemini specific settings
+gemini_endpoint: "https://generativelanguage.googleapis.com/v1beta"
+
+# Azure specific settings
+azure_endpoint: "https://xxxx.openai.azure.com/"
+azure_api_version: "2023-07-01-preview"
+azure_deployment_name: "gpt-35-turbo"
+azure_deployment_name_eb: "text-embedding-ada-002"
+
+# General settings
+temperature: 0.7
+markdown: true
+easy_copy: true
+non_interactive: false
+json_mode: false
+
+# Proxy settings
+use_proxy: false
+proxy: "socks5://127.0.0.1:2080"
+
+# Storage settings
+storage_format: "markdown"
