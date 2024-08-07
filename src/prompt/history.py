@@ -97,4 +97,5 @@ def save_history(
                 f.write(f"### {message['role'].capitalize()}\n\n")
                 f.write(f"{message['content']}\n\n")
 
+    console = create_custom_console()
     console.print(f"Session saved as: {save_file}", style="info")
