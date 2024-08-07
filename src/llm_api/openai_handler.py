@@ -2,85 +2,83 @@ import requests
 import json
 from datetime import datetime
 import os
-from rich.console import Console
-from rich.theme import Theme
+from prompt.custom_console import create_custom_console
 from config.config import SAVE_FOLDER
 
-# Define custom styles
-custom_theme = Theme(
-    {
-        "info": "bold cyan",
-        "error": "bold red",
-        "warning": "bold yellow",
-        "success": "bold green",
-    }
-)
 
 # Create a console with custom styles
-console = Console(theme=custom_theme)
+console = create_custom_console()
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 MAX_TOKENS = 1024
 
-# TODO: make cheaper by creating embeddings and using them to filter the context instead of sending XY previous messages
-# TODO: when editing code use yazi commandline editor in order to open the files that user wants to include in the context
-# then use embeddings to find the most relevant context and send it to the LLM
-
 
 def send_request(config, messages, proxy, base_endpoint):
-    match config["supplier"]:
-        case "azure":
-            api_key = config["azure_api_key"]
-            model = config["azure_deployment_name"]
-            api_version = config["azure_api_version"]
-            endpoint = f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}"
-        case "openai":
-            api_key = config["api-key"]
-            model = config["model"]
-            endpoint = "https://api.openai.com/v1/chat/completions"
-        case "anthropic":
-            api_key = config["api-key"]
-            model = config["model"]
-            endpoint = "https://api.anthropic.com/v1/chat/completions"
-        case _:
-            raise NotImplementedError(
-                "Only support supplier 'azure', 'openai' and 'anthropic'"
-            )
+    api_key = config["api-key"]
+    model = config["model"]
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    if config["supplier"] == "anthropic":
-        headers["x-api-key"] = api_key
-        headers["anthropic-version"] = "2023-06-01"
-
-    data = {
+    body = {
         "model": model,
-        "messages": messages,
         "temperature": config["temperature"],
+        "messages": messages,
     }
-
-    if config["supplier"] == "anthropic":
-        data["max_tokens"] = 1024
-
+    if "max_tokens" in config:
+        body["max_tokens"] = config["max_tokens"]
     if config["json_mode"]:
-        data["response_format"] = {"type": "json_object"}
-
-    proxies = {"http": proxy, "https": proxy} if proxy else None
+        body["response_format"] = {"type": "json_object"}
 
     try:
-        response = requests.post(
+        match config["supplier"]:
+            case "azure":
+                api_version = config["azure_api_version"]
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": api_key,
+                }
+                endpoint = f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}"
+            case "openai":
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                }
+                endpoint = f"{base_endpoint}/chat/completions"
+            case "anthropic":
+                body = {
+                    "model": model,
+                    "max_tokens": MAX_TOKENS,
+                    "temperature": config["temperature"],
+                    "messages": [{"role": "user", "content": messages[-1]["content"]}],
+                }
+                if config["markdown"]:
+                    body["system"] = SYSTEM_MARKDOWN_INSTRUCTION
+                headers = {
+                    "content-type": "application/json",
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                }
+                endpoint = f"{base_endpoint}/messages"
+            case _:
+                raise NotImplementedError(
+                    "Only support supplier 'azure', 'openai' and 'anthropic'"
+                )
+
+        r = requests.post(
             endpoint,
             headers=headers,
-            data=json.dumps(data),
-            proxies=proxies,
+            json=body,
+            proxies=proxy,
             timeout=60,
         )
-        response.raise_for_status()
-        return response
-    except requests.exceptions.RequestException as e:
+        r.raise_for_status()
+        return r
+
+    except requests.ConnectionError:
+        console.print("Connection error, try again...", style="error")
+        raise KeyboardInterrupt
+    except requests.Timeout:
+        console.print("Connection timed out, try again...", style="error")
+        raise KeyboardInterrupt
+    except requests.RequestException as e:
         console.print(
             f"An error occurred while sending the request: {str(e)}", style="error"
         )

@@ -1,5 +1,9 @@
 import json
 from typing import Dict, Any
+import os
+import datetime
+from prompt.custom_console import create_custom_console
+from config.config import SAVE_FOLDER
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
@@ -55,3 +59,42 @@ def load_history_data(history_file: str) -> Dict[str, Any]:
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
         }
+
+
+def save_history(
+    config: dict,
+    model: str,
+    messages: list,
+    prompt_tokens: int,
+    completion_tokens: int,
+    save_file: str,
+) -> None:
+    filepath = os.path.join(SAVE_FOLDER, save_file)
+
+    if config["storage_format"] == "json":
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "model": model,
+                    "messages": messages,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                },
+                f,
+                indent=4,
+                ensure_ascii=False,
+            )
+    else:  # markdown
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(
+                f"# ChatGPT Session - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            )
+            f.write(f"Model: {model}\n")
+            f.write(f"Prompt Tokens: {prompt_tokens}\n")
+            f.write(f"Completion Tokens: {completion_tokens}\n\n")
+            f.write("## Conversation\n\n")
+            for message in messages:
+                f.write(f"### {message['role'].capitalize()}\n\n")
+                f.write(f"{message['content']}\n\n")
+
+    console.print(f"Session saved as: {save_file}", style="info")
