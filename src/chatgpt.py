@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.completion import WordCompleter
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.traceback import install
@@ -76,6 +77,24 @@ click.rich_click.OPTION_GROUPS = {
 }
 
 
+def validate_model(config):
+    supplier = config["supplier"]
+    model = config["model"]
+    if model not in VALID_MODELS[supplier]:
+        session = PromptSession()
+        model_completer = WordCompleter(VALID_MODELS[supplier])
+        while True:
+            model = session.prompt(
+                f"Invalid model '{model}' for supplier '{supplier}'. Please enter a valid model: ",
+                completer=model_completer,
+            )
+            if model in VALID_MODELS[supplier]:
+                config["model"] = model
+                break
+            else:
+                print(f"'{model}' is not a valid model for supplier '{supplier}'.")
+
+
 @click.command(cls=click.RichCommand)
 @click.option(
     "-c",
@@ -118,7 +137,7 @@ click.rich_click.OPTION_GROUPS = {
     "-s",
     "--supplier",
     "supplier",
-    type=click.Choice(["openai", "azure", "anthropic"]),
+    type=click.Choice(["openai", "azure", "anthropic", "gemini"]),
     default="openai",
     help="Set the model supplier",
 )
@@ -181,12 +200,7 @@ def main(
         else:
             model = config["azure_deployment_name"] = model.strip()
 
-    if model and model not in VALID_MODELS[supplier]:
-        logger.error(
-            f"[red bold]Invalid model for supplier {supplier}",
-            extra={"highlighter": None},
-        )
-        sys.exit(1)
+    validate_model(config)
 
     config["supplier"] = supplier
     config["non_interactive"] = non_interactive

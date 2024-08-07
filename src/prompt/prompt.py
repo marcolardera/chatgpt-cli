@@ -1,6 +1,7 @@
 import re
 import sys
-from prompt_toolkit import HTML
+from prompt_toolkit import HTML, PromptSession
+from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.markdown import Markdown
 import pyperclip
@@ -12,6 +13,29 @@ from typing import Dict
 
 console = Console()
 
+# Define key bindings
+bindings = KeyBindings()
+
+
+@bindings.add("c-q")
+def _(event):
+    "Quit the application."
+    raise EOFError
+
+
+@bindings.add("c-c")
+def _(event):
+    "Copy the last response."
+    handle_copy_command(
+        "/c", event.app.config, event.app.copyable_blocks, event.app.messages
+    )
+
+
+@bindings.add("c-e")
+def _(event):
+    "Open the last response in the editor."
+    open_editor_with_last_response(event.app.messages)
+
 
 def start_prompt(
     session, config, copyable_blocks, messages, prompt_tokens, completion_tokens
@@ -21,7 +45,8 @@ def start_prompt(
             message = sys.stdin.read()
         else:
             message = session.prompt(
-                HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>")
+                HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"),
+                key_bindings=bindings,
             )
 
         # Handle special commands
@@ -62,6 +87,8 @@ def handle_copy_command(message, config, copyable_blocks, messages):
         elif messages:
             pyperclip.copy(messages[-1]["content"])
             console.print("Copied previous response to clipboard", style="bold green")
+    else:
+        console.print("Easy copy is disabled in the configuration", style="bold red")
 
 
 def print_markdown(content: str, code_blocks: dict = None):

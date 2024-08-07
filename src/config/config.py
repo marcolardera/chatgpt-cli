@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
     "proxy": "socks5://127.0.0.1:2080",
     "openai_endpoint": "https://api.openai.com/v1",
     "anthropic_endpoint": "https://api.anthropic.com/v1",
+    "gemini_endpoint": "https://generativelanguage.googleapis.com/v1beta",
     "azure_endpoint": "https://xxxx.openai.azure.com/",
     "azure_api_version": "2023-07-01-preview",
     "azure_deployment_name": "gpt-35-turbo",
@@ -34,7 +35,7 @@ DEFAULT_CONFIG = {
 VALID_MODELS = {
     "anthropic": [
         "claude-3-opus-20240229",
-        "claude-3-5-sonnet-20240620",
+        "claude-3-sonnet-20240229",
         "claude-3-haiku-20240307",
         "claude-2.1",
         "claude-2.0",
@@ -53,11 +54,14 @@ VALID_MODELS = {
         "moderation",
         "gpt-base",
     ],
+    "gemini": [
+        "gemini-1.5-flash",
+    ],
 }
 
 PRICING_RATE = {
     "claude-3-opus-20240229": {"prompt": 15.00, "completion": 75.00},
-    "claude-3-5-sonnet-20240620": {"prompt": 3.00, "completion": 15.00},
+    "claude-3-sonnet-20240229": {"prompt": 3.00, "completion": 15.00},
     "claude-3-haiku-20240307": {"prompt": 0.25, "completion": 1.25},
     "claude-2.1": {"prompt": 8.00, "completion": 24.00},
     "claude-2.0": {"prompt": 8.00, "completion": 24.00},
@@ -73,6 +77,7 @@ PRICING_RATE = {
     "embeddings": {"prompt": 0.50, "completion": 1.50},
     "moderation": {"prompt": 0.50, "completion": 1.50},
     "gpt-base": {"prompt": 0.50, "completion": 1.50},
+    "gemini-1.5-flash": {"prompt": 0.50, "completion": 1.50},
 }
 
 

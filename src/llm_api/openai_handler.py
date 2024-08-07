@@ -57,9 +57,16 @@ def send_request(config, messages, proxy, base_endpoint):
                     "anthropic-version": "2023-06-01",
                 }
                 endpoint = f"{base_endpoint}/messages"
+            case "gemini":
+                import google.generativeai as genai
+
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(model)
+                response = model.generate_content(messages[-1]["content"])
+                return response
             case _:
                 raise NotImplementedError(
-                    "Only support supplier 'azure', 'openai' and 'anthropic'"
+                    "Only support supplier 'azure', 'openai', 'anthropic', and 'gemini'"
                 )
 
         r = requests.post(
@@ -98,6 +105,16 @@ def handle_response(r, config):
                     }
                     input_tokens = response["usage"]["input_tokens"]
                     output_tokens = response["usage"]["output_tokens"]
+                case "gemini":
+                    response_message = {
+                        "content": r.text,
+                        "role": "assistant",
+                    }
+                    input_tokens = 0  # Gemini API does not provide token usage
+                    output_tokens = 0
+                    console.print(
+                        "Token counter is not available for Gemini API", style="error"
+                    )
                 case _:
                     response_message = response["choices"][0]["message"]
                     input_tokens = response["usage"]["prompt_tokens"]
