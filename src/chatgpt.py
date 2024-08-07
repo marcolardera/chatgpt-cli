@@ -1,70 +1,40 @@
 #!/bin/env python
 
 import atexit
-import datetime
-import json
 import logging
 import os
-import re
 import sys
-from pathlib import Path
-from typing import Optional
-
-import click
-import pyperclip
-import requests
-import yaml
-from prompt_toolkit import PromptSession, HTML
-from prompt_toolkit.history import FileHistory
+import rich_click as click
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.markdown import Markdown
-from xdg_base_dirs import xdg_config_home
-
-BASE = Path(xdg_config_home(), "chatgpt-cli")
-CONFIG_FILE = BASE / "config.yaml"
-HISTORY_FILE = BASE / "history"
-SAVE_FOLDER = BASE / "session-history"
-SAVE_FILE = (
-        "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.traceback import install
+from config.config import (
+    load_config,
+    create_save_folder,
+    get_session_filename,
+    get_last_save_file,
+    CONFIG_FILE,
+    HISTORY_FILE,
+    SAVE_FOLDER,
+    PRICING_RATE,
 )
-OPENAI_BASE_ENDPOINT = os.environ.get(
-    "OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1"
+from prompt.prompt import (
+    start_prompt,
+    print_markdown,
+    display_expense,
+    add_markdown_system_message,
 )
-CHAT_API_KEY = "CHAT_API_KEY"
+from llm_api.openai_handler import send_request, handle_response, save_history
+from prompt.history import load_history_data
 
-ANTHROPIC_BASE_ENDPOINT = os.environ.get("ANTHROPIC_BASE_ENDPOINT", "https://api.anthropic.com/v1")
-ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
-MAX_TOKENS = 1024  # TODO: add to config
-SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+# Install rich traceback handler
+install(show_locals=True)
 
-# Azure price is not accurate, it depends on your subscription
-# TODO: move unit to per 1M tokens (currently per 1K tokens)
-PRICING_RATE = {
-    "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-0125": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-1106": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-0613": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-3.5-turbo-16k": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-1106": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-0613": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-35-turbo-16k": {"prompt": 0.0005, "completion": 0.0015},
-    "gpt-4": {"prompt": 0.03, "completion": 0.06},
-    "gpt-4-0613": {"prompt": 0.03, "completion": 0.06},
-    "gpt-4-32k": {"prompt": 0.06, "completion": 0.12},
-    "gpt-4-32k-0613": {"prompt": 0.06, "completion": 0.12},
-    "gpt-4-1106-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
-    "gpt-4o": {"prompt": 0.005, "completion": 0.015},
-    # ref: https://docs.anthropic.com/en/docs/about-claude/models
-    "claude-3-5-sonnet-20240620": {"prompt": 0.003, "completion": 0.015},
-    "claude-3-opus-20240229": {"prompt": 0.015, "completion": 0.075},
-    "claude-3-sonnet-20240229": {"prompt": 0.003, "completion": 0.015},
-    "claude-3-haiku-20240307": {"prompt": 0.00025, "completion": 0.00125},
-}
-
+# Initialize logger and console
 logger = logging.getLogger("rich")
 logging.basicConfig(
     level="INFO",
@@ -73,431 +43,39 @@ logging.basicConfig(
         RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
     ],
 )
-
-# Initialize the messages history list
-# It's mandatory to pass it at each API call in order to have a conversation
-messages = []
-# Initialize the token counters
-prompt_tokens = 0
-completion_tokens = 0
-# Initialize the console
 console = Console()
 
-DEFAULT_CONFIG = {
-    "supplier": "openai",
-    "api-key": "<INSERT YOUR  OPENAI API KEY HERE>",
-    "model": "gpt-3.5-turbo",
-    "azure_endpoint": "https://xxxx.openai.azure.com/",
-    "azure_api_version": "2023-07-01-preview",
-    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
-    "azure_deployment_name": "gpt-35-turbo",
-    "azure_deployment_name_eb": "text-embedding-ada-002",
-    "temperature": 1,
-    # 'max_tokens': 500,
-    "markdown": True,
-    "easy_copy": True,
-    "non_interactive": False,
-    "json_mode": False,
-    "use_proxy": False,
-    "proxy": "socks5://127.0.0.1:2080",
+# Initialize global variables
+SAVE_FILE = None
+messages = []
+prompt_tokens = 0
+completion_tokens = 0
+
+# Configure rich_click
+click.rich_click.USE_MARKDOWN = True
+click.rich_click.MAX_WIDTH = 100
+click.rich_click.SHOW_ARGUMENTS = True
+
+# Define option groups
+click.rich_click.OPTION_GROUPS = {
+    "main": [
+        {
+            "name": "Input Options",
+            "options": ["--context", "--key", "--model", "--multiline", "--restore"],
+        },
+        {
+            "name": "Output Options",
+            "options": ["--non-interactive", "--json"],
+        },
+        {
+            "name": "API Options",
+            "options": ["--supplier", "--endpoint"],
+        },
+    ]
 }
 
 
-def load_config(config_file: str) -> dict:
-    """
-    Read a YAML config file and returns its content as a dictionary.
-    If the config file is missing, create one with default values.
-    If the config file is present but missing keys, populate them with defaults.
-    """
-    # If the config file does not exist, create one with default configurations
-    if not Path(config_file).exists():
-        os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        with open(config_file, "w", encoding="utf-8") as file:
-            yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
-        logger.info(f"New config file initialized: [green bold]{config_file}")
-
-    # Load existing config
-    with open(config_file, encoding="utf-8") as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
-
-    # Update the loaded config with any default values that are missing
-    for key, value in DEFAULT_CONFIG.items():
-        if key not in config:
-            config[key] = value
-
-    return config
-
-
-def load_history_data(history_file: str) -> dict:
-    """
-    Read a session history json file and return its content
-    """
-    with open(history_file, encoding="utf-8") as file:
-        content = json.loads(file.read())
-
-    return content
-
-
-def get_last_save_file() -> str:
-    """
-    Return the timestamp of the last saved session
-    """
-    files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
-    if files:
-        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
-        ts.sort()
-        return ts[-1]
-    return None
-
-
-def create_save_folder() -> None:
-    """
-    Create the session history folder if not exists
-    """
-    if not os.path.exists(SAVE_FOLDER):
-        os.mkdir(SAVE_FOLDER)
-
-
-def save_history(
-        model: str, messages: list, prompt_tokens: int, completion_tokens: int
-) -> None:
-    """
-    Save the conversation history in JSON format
-    """
-    with open(os.path.join(SAVE_FOLDER, SAVE_FILE), "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "model": model,
-                "messages": messages,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-            },
-            f,
-            indent=4,
-            ensure_ascii=False,
-        )
-
-
-def add_markdown_system_message() -> None:
-    """
-    Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
-    """
-    messages.append({"role": "system", "content": SYSTEM_MARKDOWN_INSTRUCTION})
-
-
-def calculate_expense(
-        prompt_tokens: int,
-        completion_tokens: int,
-        prompt_pricing: float,
-        completion_pricing: float,
-) -> float:
-    """
-    Calculate the expense, given the number of tokens and the pricing rates
-    """
-    expense = ((prompt_tokens / 1000) * prompt_pricing) + (
-            (completion_tokens / 1000) * completion_pricing
-    )
-
-    # Format to display in decimal notation rounded to 6 decimals
-    expense = "{:.6f}".format(round(expense, 6))
-
-    return expense
-
-
-def display_expense(model: str) -> None:
-    """
-    Given the model used, display total tokens used and estimated expense
-    """
-    logger.info(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
-        extra={"highlighter": None},
-    )
-
-    if model in PRICING_RATE:
-        total_expense = calculate_expense(
-            prompt_tokens,
-            completion_tokens,
-            PRICING_RATE[model]["prompt"],
-            PRICING_RATE[model]["completion"],
-        )
-        logger.info(
-            f"Estimated expense: [green bold]${total_expense}",
-            extra={"highlighter": None},
-        )
-    else:
-        logger.warning(
-            f"[red bold]No expense estimate available for model {model}",
-            extra={"highlighter": None},
-        )
-
-
-def print_markdown(content: str, code_blocks: Optional[dict] = None):
-    """
-    Print markdown formatted text to the terminal.
-    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
-    """
-    if code_blocks is None:
-        console.print(Markdown(content))
-        return
-
-    lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
-    code_block_open = False
-    code_block_language = ""
-    code_block_content = []
-    regular_content = []
-
-    for line in lines:
-        if line.startswith("```") and not code_block_open:
-            code_block_open = True
-            code_block_language = line.replace("```", "").strip()
-            if regular_content:
-                console.print(Markdown("\n".join(regular_content)))
-                regular_content = []
-        elif line.startswith("```") and code_block_open:
-            code_block_open = False
-            snippet_text = "\n".join(code_block_content)
-            if code_blocks is not None:
-                code_blocks[code_block_id] = snippet_text
-            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
-            console.print(Markdown(formatted_code_block))
-            code_block_id += 1
-            code_block_content = []
-            code_block_language = ""
-        elif code_block_open:
-            code_block_content.append(line)
-        else:
-            regular_content.append(line)
-
-    if code_block_open:  # uh-oh, the code block was never closed.
-        console.print(Markdown("\n".join(code_block_content)))
-    elif regular_content:  # If there's any remaining regular content, print it
-        console.print(Markdown("\n".join(regular_content)))
-
-
-def start_prompt(
-        session: PromptSession,
-        config: dict,
-        copyable_blocks: Optional[dict],
-        proxy: dict | None,
-) -> None:
-    """
-    Ask the user for input, build the request and perform it
-    """
-
-    # TODO: Refactor to avoid a global variables
-    global prompt_tokens, completion_tokens
-
-    message = ""
-
-    if config["non_interactive"]:
-        message = sys.stdin.read()
-    else:
-        message = session.prompt(
-            HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>")
-        )
-
-    if message.lower().strip() == "/q":
-        raise EOFError
-    if message.lower() == "":
-        raise KeyboardInterrupt
-
-    if config["easy_copy"] and message.lower().startswith("/c"):
-        # Use regex to find digits after /c or /copy
-        match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
-        if match:
-            block_id = int(match.group(1))
-            if block_id in copyable_blocks:
-                try:
-                    pyperclip.copy(copyable_blocks[block_id])
-                    logger.info(f"Copied block {block_id} to clipboard")
-                except pyperclip.PyperclipException:
-                    logger.error(
-                        "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error"
-                    )
-            else:
-                logger.error(
-                    f"No code block with ID {block_id} available",
-                    extra={"highlighter": None},
-                )
-        elif messages:
-            pyperclip.copy(messages[-1]["content"])
-            logger.info(f"Copied previous response to clipboard")
-        raise KeyboardInterrupt
-
-    messages.append({"role": "user", "content": message})
-
-    match config["supplier"]:
-        case "azure":
-            api_key = config["azure_api_key"]
-            model = config["azure_deployment_name"]
-            api_version = config["azure_api_version"]
-            base_endpoint = config["azure_endpoint"]
-        case "openai":
-            api_key = config["api-key"]
-            model = config["model"]
-            base_endpoint = OPENAI_BASE_ENDPOINT
-        case "anthropic":
-            api_key = config["api-key"]
-            model = config["model"]
-            base_endpoint = ANTHROPIC_BASE_ENDPOINT
-        case _:
-            NotImplementedError("Only support supplier 'azure', 'openai' and 'anthropic'")
-
-    # Base body parameters
-    body = {
-        "model": model,
-        "temperature": config["temperature"],
-        "messages": messages,
-    }
-    # Optional parameters
-    if "max_tokens" in config:
-        body["max_tokens"] = config["max_tokens"]
-    if config["json_mode"]:
-        body["response_format"] = {"type": "json_object"}
-
-    try:
-        match config["supplier"]:
-            case "azure":
-                headers = {
-                    "Content-Type": "application/json",
-                    "api-key": api_key,
-                }
-                r = requests.post(
-                    f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
-                    headers=headers,
-                    json=body,
-                    proxies=proxy,
-                )
-            case "openai":
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                }
-                r = requests.post(
-                    f"{base_endpoint}/chat/completions",
-                    headers=headers,
-                    json=body,
-                    proxies=proxy,
-                )
-            case "anthropic":
-                body |= {"max_tokens": MAX_TOKENS}
-                if config["markdown"]:
-                    body |= {"system": SYSTEM_MARKDOWN_INSTRUCTION}
-                headers = {
-                    "content-type": "application/json",
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                }
-                r = requests.post(
-                    f"{base_endpoint}/messages",
-                    headers=headers,
-                    json=body,
-                    proxies=proxy,
-                )
-    except requests.ConnectionError:
-        logger.error(
-            "[red bold]Connection error, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-    except requests.Timeout:
-        logger.error(
-            "[red bold]Connection timed out, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-
-    match r.status_code:
-        case 200:
-            response = r.json()
-
-            match config["supplier"]:
-                case "anthropic":
-                    response_message = {
-                        "content": response["content"][0]["text"],
-                        "role": "assistant",
-                    }
-                    _input_tokens = response["usage"]["input_tokens"]
-                    _output_tokens = response["usage"]["output_tokens"]
-                case _:
-                    response_message = response["choices"][0]["message"]
-                    _input_tokens = response["usage"]["prompt_tokens"]
-                    _output_tokens = response["usage"]["completion_tokens"]
-
-            if not config["non_interactive"]:
-                console.line()
-            if config["markdown"]:
-                print_markdown(response_message["content"].strip(), copyable_blocks)
-            else:
-                print(response_message["content"].strip())
-            if not config["non_interactive"]:
-                console.line()
-
-            # Update message history and token counters
-            messages.append(response_message)
-            prompt_tokens += _input_tokens
-            completion_tokens += _output_tokens
-            save_history(model, messages, prompt_tokens, completion_tokens)
-
-            if config["non_interactive"]:
-                # In non-interactive mode there is no looping back for a second prompt, you're done.
-                raise EOFError
-
-        case 400:
-            response = r.json()
-            if "error" in response:
-                if "code" in response["error"] and response["error"]["code"] == "context_length_exceeded":
-                    logger.error(
-                        "[red bold]Maximum context length exceeded",
-                        extra={"highlighter": None},
-                    )
-                    raise EOFError
-                    # TODO: Develop a better strategy to manage this case
-            logger.error(
-                f"[red bold]Invalid request with response: '{response}', header: '{r.headers}, and body: '{r.request.body}'",
-                extra={"highlighter": None})
-            raise EOFError
-
-        case 401:
-            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
-            raise EOFError
-
-        case 429:
-            logger.error(
-                "[red bold]Rate limit or maximum monthly limit exceeded",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
-
-        case 500:
-            logger.error(
-                "[red bold]Internal server error, check https://status.openai.com",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
-
-        case 502 | 503:
-            logger.error(
-                "[red bold]The server seems to be overloaded, try again",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
-
-        case _:
-            logger.error(
-                f"[red bold]Unknown error, status code {r.status_code}",
-                extra={"highlighter": None},
-            )
-            logger.error(r.json(), extra={"highlighter": None})
-            r.raise_for_status()
-
-
-@click.command()
+@click.command(cls=click.RichCommand)
 @click.option(
     "-c",
     "--context",
@@ -515,7 +93,7 @@ def start_prompt(
     "-r",
     "--restore",
     "restore",
-    help="Restore a previous chat session (input format: YYYYMMDD-hhmmss or 'last')",
+    help="Restore a previous chat session (input format: HH-DD-MM-YYYY or 'last')",
 )
 @click.option(
     "-n",
@@ -528,24 +106,46 @@ def start_prompt(
     "-j", "--json", "json_mode", is_flag=True, help="Activate json response mode"
 )
 @click.option(
-    "-s", "--supplier", "supplier", type=click.Choice(["openai", "azure", "anthropic"]), default="openai",
-    help="Set the model supplier"
+    "-s",
+    "--supplier",
+    "supplier",
+    type=click.Choice(["openai", "azure", "anthropic"]),
+    default="openai",
+    help="Set the model supplier",
 )
+@click.option("-e", "--endpoint", "custom_endpoint", help="Set a custom API endpoint")
 def main(
-        context, api_key, model, multiline, restore, non_interactive, json_mode, supplier
-) -> None:
-    # If non interactive suppress the logging messages
+    context,
+    api_key,
+    model,
+    multiline,
+    restore,
+    non_interactive,
+    json_mode,
+    supplier,
+    custom_endpoint,
+):
+    """
+    ChatGPT CLI - Interact with various language models through a command-line interface.
+
+    This application allows you to chat with different language models, restore previous sessions,
+    and customize various aspects of the interaction.
+
+    Usage examples:
+    - Start a new chat: `python chatgpt.py`
+    - Restore a previous session: `python chatgpt.py -r last`
+    - Use a specific model: `python chatgpt.py -m gpt-4`
+    - Use a custom API endpoint: `python chatgpt.py -e https://custom-endpoint.com/v1`
+    """
+    global SAVE_FILE, prompt_tokens, completion_tokens, messages
+
     if non_interactive:
         logger.setLevel("ERROR")
 
     logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
 
     history = FileHistory(HISTORY_FILE)
-
-    if multiline:
-        session = PromptSession(history=history, multiline=True)
-    else:
-        session = PromptSession(history=history)
+    session = PromptSession(history=history, multiline=multiline)
 
     try:
         config = load_config(CONFIG_FILE)
@@ -557,19 +157,15 @@ def main(
 
     create_save_folder()
 
-    # check proxy setting
-    proxy = {"http": config["proxy"], "https": config["proxy"]} if config["use_proxy"] else None
+    proxy = (
+        {"http": config["proxy"], "https": config["proxy"]}
+        if config["use_proxy"]
+        else None
+    )
 
-    # Order of precedence for API Key configuration:
-    # Command line option > Environment variable > Configuration file
-
-    # If the environment variable is set overwrite the configuration
-    if API_KEY := os.environ.get(CHAT_API_KEY, os.environ.get("OPENAI_API_KEY")):  # for backward compatibility
-        config["api-key"] = API_KEY.strip()
-    # If the --key command line argument is used overwrite the configuration
+    # Update config based on command-line arguments
     if api_key:
         config["api-key"] = api_key.strip()
-    # If the --model command line argument is used overwrite the configuration
     if model:
         if config["supplier"] != "azure":
             model = config["model"] = model.strip()
@@ -578,29 +174,29 @@ def main(
 
     config["supplier"] = supplier
     config["non_interactive"] = non_interactive
+    config["json_mode"] = json_mode
 
-    # Do not emit markdown in this case; ctrl character formatting interferes in several contexts including json
-    # output.
     if config["non_interactive"]:
         config["markdown"] = False
 
-    config["json_mode"] = json_mode
-
     copyable_blocks = {} if config["easy_copy"] else None
 
-    # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=model)
+    atexit.register(
+        display_expense,
+        model=model,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        pricing_rate=PRICING_RATE,
+    )
 
     logger.info(
         f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
     )
     logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
 
-    # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"] and config["supplier"] != "anthropic":
-        add_markdown_system_message()
+        add_markdown_system_message(messages)
 
-    # Context from the command line option
     if context:
         for c in context:
             logger.info(
@@ -608,24 +204,23 @@ def main(
             )
             messages.append({"role": "system", "content": c.read().strip()})
 
-    # Restore a previous session
+    SAVE_FILE = get_session_filename(config)
+
     if restore:
-        if restore == "last":
-            last_session = get_last_save_file()
-            restore_file = f"chatgpt-session-{last_session}.json"
-        else:
-            restore_file = f"chatgpt-session-{restore}.json"
+        restore_file = (
+            get_last_save_file()
+            if restore == "last"
+            else f"chatgpt-session-{restore}.{config['storage_format']}"
+        )
         try:
-            global prompt_tokens, completion_tokens
-            # If this feature is used --context is cleared
             messages.clear()
             history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
-            for message in history_data["messages"]:
-                messages.append(message)
-            prompt_tokens += history_data["prompt_tokens"]
-            completion_tokens += history_data["completion_tokens"]
+            messages.extend(history_data["messages"])
+            prompt_tokens = history_data["prompt_tokens"]
+            completion_tokens = history_data["completion_tokens"]
+            SAVE_FILE = restore_file
             logger.info(
-                f"Restored session: [bold green]{restore}",
+                f"Restored session: [bold green]{restore_file}",
                 extra={"highlighter": None},
             )
         except FileNotFoundError:
@@ -642,9 +237,43 @@ def main(
     if not non_interactive:
         console.rule()
 
+    base_endpoint = custom_endpoint or config.get(f"{supplier}_endpoint")
+    base_endpoint = base_endpoint.rstrip("/")
+
     while True:
         try:
-            start_prompt(session, config, copyable_blocks, proxy)
+            message = start_prompt(
+                session,
+                config,
+                copyable_blocks,
+                messages,
+                prompt_tokens,
+                completion_tokens,
+            )
+            messages.append({"role": "user", "content": message})
+
+            with Live(Spinner("dots"), refresh_per_second=10) as live:
+                live.update("Waiting for response...")
+                r = send_request(config, messages, proxy, base_endpoint)
+                response_message, input_tokens, output_tokens = handle_response(
+                    r, config
+                )
+
+            messages.append(response_message)
+            prompt_tokens += input_tokens
+            completion_tokens += output_tokens
+
+            if config["markdown"]:
+                print_markdown(response_message["content"], copyable_blocks)
+            else:
+                console.print(response_message["content"])
+
+            display_expense(model, prompt_tokens, completion_tokens, PRICING_RATE)
+
+            save_history(
+                config, model, messages, prompt_tokens, completion_tokens, SAVE_FILE
+            )
+
         except KeyboardInterrupt:
             continue
         except EOFError:
