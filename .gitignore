@@ -167,3 +167,4 @@ session-history/
 
 # JetBrains IDE config files
 .idea/
+.vscode/settings.json

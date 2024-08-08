@@ -25,9 +25,16 @@ typing-extensions = "==4.6.2"
 urllib3 = "==1.26.14"
 wcwidth = "==0.2.6"
 xdg-base-dirs = "~=6.0.0"
-pyperclip = "==1.8.2"
+pyperclip = "*"
 pysocks = "==1.7.1"
 rich-click = "*"
+openai = "*"
+scikit-learn = "*"
+aiohttp = "*"
+httpx = "*"
+loguru = "*"
+asyncclick = "*"
+anyio = "*"
 
 [dev-packages]
 

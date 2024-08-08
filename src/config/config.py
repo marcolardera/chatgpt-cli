@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import yaml
 from xdg_base_dirs import xdg_config_home
+from typing import Any, Dict
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -30,12 +31,17 @@ DEFAULT_CONFIG = {
     "azure_deployment_name": "gpt-35-turbo",
     "azure_deployment_name_eb": "text-embedding-ada-002",
     "storage_format": "markdown",
+    "embedding_model": "text-embedding-ada-002",
+    "embedding_dimension": 1536,
+    "max_context_tokens": 3500,
+    "show_spinner": True,
+    "max_tokens": 1024,
 }
 
 VALID_MODELS = {
     "anthropic": [
         "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",
+        "claude-3-5-sonnet-20240620",
         "claude-3-haiku-20240307",
         "claude-2.1",
         "claude-2.0",
@@ -44,15 +50,7 @@ VALID_MODELS = {
     "openai": [
         "gpt-4o",
         "gpt-4o-mini",
-        "gpt-4-turbo",
-        "gpt-4",
         "gpt-3.5-turbo",
-        "dall-e",
-        "tts",
-        "whisper",
-        "embeddings",
-        "moderation",
-        "gpt-base",
     ],
     "gemini": [
         "gemini-1.5-flash",
@@ -61,7 +59,7 @@ VALID_MODELS = {
 
 PRICING_RATE = {
     "claude-3-opus-20240229": {"prompt": 15.00, "completion": 75.00},
-    "claude-3-sonnet-20240229": {"prompt": 3.00, "completion": 15.00},
+    "claude-3-5-sonnet-20240620": {"prompt": 3.00, "completion": 15.00},
     "claude-3-haiku-20240307": {"prompt": 0.25, "completion": 1.25},
     "claude-2.1": {"prompt": 8.00, "completion": 24.00},
     "claude-2.0": {"prompt": 8.00, "completion": 24.00},
@@ -81,7 +79,7 @@ PRICING_RATE = {
 }
 
 
-def load_config(config_file: str) -> dict:
+def load_config(config_file: str) -> Dict[str, Any]:
     if not Path(config_file).exists():
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
         with open(config_file, "w", encoding="utf-8") as file:
@@ -95,6 +93,11 @@ def load_config(config_file: str) -> dict:
         if key not in config:
             config[key] = value
 
+    # Add this block after loading the config
+    supplier = config.get("supplier", "anthropic")
+    api_key_name = f"{supplier}_api_key"
+    config["api_key"] = config.get(api_key_name, "")
+
     return config
 
 
@@ -103,11 +106,11 @@ def create_save_folder():
         os.mkdir(SAVE_FOLDER)
 
 
-def get_session_filename(config: dict) -> str:
+def get_session_filename(config: Dict[str, Any]) -> str:
     from datetime import datetime
 
     now = datetime.now()
-    extension = config["storage_format"] if "storage_format" in config else "md"
+    extension: str = config.get("storage_format", "md")
     date_str = now.strftime("%d-%m-%Y")
 
     existing_files = [f for f in os.listdir(SAVE_FOLDER) if f.startswith(date_str)]
@@ -121,7 +124,7 @@ def get_session_filename(config: dict) -> str:
     return f"{date_str}_{session_index}.{extension}"
 
 
-def get_last_save_file() -> str:
+def get_last_save_file() -> str | None:
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith((".json", ".md"))]
     if files:
         return max(files, key=lambda x: os.path.getctime(os.path.join(SAVE_FOLDER, x)))

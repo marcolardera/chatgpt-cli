@@ -1,200 +1,138 @@
+from typing import Dict, Any, List, Optional, Union
 import requests
-import json
-from datetime import datetime
-import os
-from prompt.custom_console import create_custom_console
-from config.config import SAVE_FOLDER
-
-
-# Create a console with custom styles
-console = create_custom_console()
+from prompt.prompt import console, add_markdown_system_message
+from prompt_toolkit import PromptSession
+from prompt.prompt import start_prompt, print_markdown
+from rich.spinner import Spinner
+from rich.live import Live
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
-MAX_TOKENS = 1024
 
 
-def send_request(config, messages, proxy, base_endpoint):
-    api_key = config["api-key"]
-    model = config["model"]
+def send_request(
+    config: Dict[str, Any],
+    messages: List[Dict[str, str]],
+    proxy: Optional[Dict[str, str]],
+    base_endpoint: str,
+) -> Union[Dict[str, Any], None]:
+    api_key: str = config["api_key"]
+    model: str = config["model"]
+    max_tokens: int = config.get("max_tokens", 1024)
 
-    body = {
+    body: Dict[str, Any] = {
         "model": model,
         "temperature": config["temperature"],
         "messages": messages,
+        "max_tokens": max_tokens,
     }
-    if "max_tokens" in config:
-        body["max_tokens"] = config["max_tokens"]
     if config["json_mode"]:
         body["response_format"] = {"type": "json_object"}
 
     try:
         match config["supplier"]:
             case "azure":
-                api_version = config["azure_api_version"]
-                headers = {
+                api_version: str = config["azure_api_version"]
+                headers: Dict[str, str] = {
                     "Content-Type": "application/json",
                     "api-key": api_key,
                 }
-                endpoint = f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}"
+                endpoint: str = f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}"
             case "openai":
-                headers = {
+                headers: Dict[str, str] = {
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {api_key}",
                 }
-                endpoint = f"{base_endpoint}/chat/completions"
+                endpoint: str = f"{base_endpoint}/chat/completions"
             case "anthropic":
                 body = {
                     "model": model,
-                    "max_tokens": MAX_TOKENS,
+                    "max_tokens": max_tokens,
                     "temperature": config["temperature"],
                     "messages": [{"role": "user", "content": messages[-1]["content"]}],
                 }
                 if config["markdown"]:
                     body["system"] = SYSTEM_MARKDOWN_INSTRUCTION
-                headers = {
+                headers: Dict[str, str] = {
                     "content-type": "application/json",
                     "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
                 }
-                endpoint = f"{base_endpoint}/messages"
-            case "gemini":
-                import google.generativeai as genai
-
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model)
-                response = model.generate_content(messages[-1]["content"])
-                return response
+                endpoint: str = f"{base_endpoint}/v1/complete"
             case _:
-                raise NotImplementedError(
-                    "Only support supplier 'azure', 'openai', 'anthropic', and 'gemini'"
-                )
+                raise ValueError("Unsupported supplier")
 
-        r = requests.post(
-            endpoint,
-            headers=headers,
-            json=body,
-            proxies=proxy,
-            timeout=60,
-        )
-        r.raise_for_status()
-        return r
+        response = requests.post(endpoint, json=body, headers=headers, proxies=proxy)
+        response.raise_for_status()
+        return response.json()
 
-    except requests.ConnectionError:
-        console.print("Connection error, try again...", style="error")
-        raise KeyboardInterrupt
-    except requests.Timeout:
-        console.print("Connection timed out, try again...", style="error")
-        raise KeyboardInterrupt
-    except requests.RequestException as e:
-        console.print(
-            f"An error occurred while sending the request: {str(e)}", style="error"
-        )
-        raise
+    except requests.exceptions.RequestException as e:
+        console.print(f"Request failed: {e}", style="error")
+        return None
 
 
-def handle_response(r, config):
-    match r.status_code:
-        case 200:
-            response = r.json()
+def handle_response(response, config):
+    if isinstance(response, dict) and "choices" in response:
+        response_message = response["choices"][0]["message"]["content"]
+        return response_message
+    else:
+        raise ValueError("Invalid response format")
 
-            match config["supplier"]:
-                case "anthropic":
-                    response_message = {
-                        "content": response["content"][0]["text"],
-                        "role": "assistant",
-                    }
-                    input_tokens = response["usage"]["input_tokens"]
-                    output_tokens = response["usage"]["output_tokens"]
-                case "gemini":
-                    response_message = {
-                        "content": r.text,
-                        "role": "assistant",
-                    }
-                    input_tokens = 0  # Gemini API does not provide token usage
-                    output_tokens = 0
-                    console.print(
-                        "Token counter is not available for Gemini API", style="error"
-                    )
-                case _:
-                    response_message = response["choices"][0]["message"]
-                    input_tokens = response["usage"]["prompt_tokens"]
-                    output_tokens = response["usage"]["completion_tokens"]
 
-            return response_message, input_tokens, output_tokens
+def chat_with_context(
+    config: Dict[str, Any],
+    session: PromptSession,
+    proxy: Optional[Dict[str, str]],
+    base_endpoint: str,
+    show_spinner: bool,
+) -> (List[Dict[str, str]], int):  # Return current tokens
+    messages: List[Dict[str, str]] = []
+    prompt_tokens = 0
+    completion_tokens = 0
+    current_tokens = 0  # Initialize current tokens
+    code_blocks = {}  # Store code blocks
 
-        case 400:
-            response = r.json()
-            if "error" in response:
-                if (
-                    "code" in response["error"]
-                    and response["error"]["code"] == "context_length_exceeded"
-                ):
-                    console.print("Maximum context length exceeded", style="error")
-                    raise EOFError
-            console.print(
-                f"Invalid request with response: '{response}', header: '{r.headers}, and body: '{r.request.body}'",
-                style="error",
+    if config.get("markdown", False):
+        add_markdown_system_message(messages)
+
+    while True:
+        try:
+            user_input = start_prompt(
+                session,
+                config,
+                code_blocks,  # Pass code_blocks to start_prompt
+                messages,
+                prompt_tokens,
+                completion_tokens,
+                None,  # Context manager is not used in this simplified version
             )
-            raise EOFError
 
-        case 401:
-            console.print("Invalid API Key", style="error")
-            raise EOFError
+            api_messages = messages + [{"role": "user", "content": user_input}]
+            current_tokens += len(user_input.split())  # Update current tokens
 
-        case 429:
-            console.print("Rate limit or maximum monthly limit exceeded", style="error")
-            raise KeyboardInterrupt
+            if show_spinner:
+                with Live(Spinner("dots"), refresh_per_second=10) as live:
+                    live.update(Spinner("dots", text="Waiting for response..."))
+                    response = send_request(config, api_messages, proxy, base_endpoint)
+            else:
+                response = send_request(config, api_messages, proxy, base_endpoint)
 
-        case 500:
-            console.print(
-                "Internal server error, check https://status.openai.com", style="error"
-            )
-            raise KeyboardInterrupt
+            if response:
+                response_message = handle_response(response, config)
+                completion_tokens += len(
+                    response_message.split()
+                )  # Update completion tokens
 
-        case 502 | 503:
-            console.print("The server seems to be overloaded, try again", style="error")
-            raise KeyboardInterrupt
+                messages.append({"role": "user", "content": user_input})
+                messages.append({"role": "assistant", "content": response_message})
 
-        case _:
-            console.print(f"Unknown error, status code {r.status_code}", style="error")
-            console.print(r.json(), style="error")
-            r.raise_for_status()
+                print_markdown(
+                    response_message, code_blocks
+                )  # Pass code_blocks to print_markdown
+            else:
+                console.print("Failed to get a response", style="error")
 
+        except KeyboardInterrupt:
+            continue
+        except EOFError:
+            break
 
-def save_history(
-    config: dict,
-    model: str,
-    messages: list,
-    prompt_tokens: int,
-    completion_tokens: int,
-    save_file: str,
-) -> None:
-    filepath = os.path.join(SAVE_FOLDER, save_file)  # Use SAVE_FOLDER directly
-
-    if config["storage_format"] == "json":
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "model": model,
-                    "messages": messages,
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                },
-                f,
-                indent=4,
-                ensure_ascii=False,
-            )
-    else:  # markdown
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(
-                f"# ChatGPT Session - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-            )
-            f.write(f"Model: {model}\n")
-            f.write(f"Prompt Tokens: {prompt_tokens}\n")
-            f.write(f"Completion Tokens: {completion_tokens}\n\n")
-            f.write("## Conversation\n\n")
-            for message in messages:
-                f.write(f"### {message['role'].capitalize()}\n\n")
-                f.write(f"{message['content']}\n\n")
-
-    console.print(f"Session saved as: {save_file}", style="info")
+    return messages, current_tokens + completion_tokens  # Return total tokens

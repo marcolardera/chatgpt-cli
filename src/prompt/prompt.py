@@ -1,45 +1,51 @@
+from prompt_toolkit import PromptSession
+from typing import Callable, Dict, Any, List, Optional
 import re
 import sys
-from prompt_toolkit import HTML, PromptSession
-from prompt_toolkit.key_binding import KeyBindings
-from rich.console import Console
-from rich.markdown import Markdown
-import pyperclip
 import tempfile
 import subprocess
 import os
+import pyperclip
+from prompt_toolkit import HTML
+from prompt_toolkit.key_binding import KeyBindings
+from prompt.custom_console import create_custom_console
+from rich.markdown import Markdown
 
-from typing import Dict
-
-console = Console()
+# Initialize custom console
+console = create_custom_console()
 
 # Define key bindings
 bindings = KeyBindings()
 
 
 @bindings.add("c-q")
-def _(event):
+def _(event: Any) -> None:
     "Quit the application."
     raise EOFError
 
 
-@bindings.add("c-c")
-def _(event):
-    "Copy the last response."
-    handle_copy_command(
-        "/c", event.app.config, event.app.copyable_blocks, event.app.messages
-    )
-
-
 @bindings.add("c-e")
-def _(event):
+def _(event: Any) -> None:
     "Open the last response in the editor."
-    open_editor_with_last_response(event.app.messages)
+    open_editor_with_last_response(event.app.state["messages"])
 
 
 def start_prompt(
-    session, config, copyable_blocks, messages, prompt_tokens, completion_tokens
-):
+    session: PromptSession[Any],
+    config: Dict[str, Any],
+    copyable_blocks: Dict[str, str],  # Updated to use code_blocks
+    messages: List[Dict[str, str]],
+    prompt_tokens: int,
+    completion_tokens: int,
+    context_manager: Optional[Any],
+) -> str:
+    # Store config and messages in the app state for access in key bindings
+    session.app.state = {
+        "config": config,
+        "messages": messages,
+        "copyable_blocks": copyable_blocks,
+    }
+
     while True:
         if config["non_interactive"]:
             message = sys.stdin.read()
@@ -61,54 +67,88 @@ def start_prompt(
         elif message.lower().strip() == "":
             raise KeyboardInterrupt
         else:
+            if context_manager:
+                context_manager.add_chunk(message)
             return message
 
 
-def handle_copy_command(message, config, copyable_blocks, messages):
+def handle_copy_command(
+    message: str,
+    config: Dict[str, Any],
+    code_blocks: Dict[str, str],  # Updated to use code_blocks
+    messages: List[Dict[str, str]],
+) -> None:
     if config["easy_copy"]:
         match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
         if match:
             block_id = int(match.group(1))
-            if block_id in copyable_blocks:
+            if str(block_id) in code_blocks:
                 try:
-                    pyperclip.copy(copyable_blocks[block_id]["content"])
+                    pyperclip.copy(code_blocks[str(block_id)])
                     console.print(
-                        f"Copied block {block_id} to clipboard", style="bold green"
+                        f"Copied block {block_id} to clipboard", style="success"
                     )
                 except pyperclip.PyperclipException:
                     console.print(
                         "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
-                        style="bold red",
+                        style="error",
                     )
             else:
                 console.print(
-                    f"No code block with ID {block_id} available", style="bold red"
+                    f"No code block with ID {block_id} available", style="error"
                 )
         elif messages:
             pyperclip.copy(messages[-1]["content"])
-            console.print("Copied previous response to clipboard", style="bold green")
+            console.print("Copied previous response to clipboard", style="success")
     else:
-        console.print("Easy copy is disabled in the configuration", style="bold red")
+        console.print("Easy copy is disabled in the configuration", style="error")
 
 
-def print_markdown(content: str, code_blocks: dict = None):
-    try:
-        # Add "Copy: X" above each code block
-        lines = content.split("\n")
-        block_id = 1
-        for i, line in enumerate(lines):
-            if line.startswith("```"):
-                lines.insert(i, f"Copy: {block_id}")
-                block_id += 1
-        content = "\n".join(lines)
-
+def print_markdown(content: str, code_blocks: Optional[dict] = None):
+    """
+    Print markdown formatted text to the terminal.
+    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
+    """
+    if code_blocks is None:
         console.print(Markdown(content))
-    except Exception:
-        open_editor_with_content(content)
+        return
 
-    if code_blocks is not None:
-        extract_code_blocks(content, code_blocks)
-        print_code_block_summary(code_blocks)
+    lines = content.split("\n")
+    code_block_id = 1 + max(
+        map(int, code_blocks.keys()), default=0
+    )  # Start from the next available ID
+    code_block_open = False
+    code_block_language = ""
+    code_block_content = []
+    regular_content = []
+
+    for line in lines:
+        if line.startswith("```") and not code_block_open:
+            code_block_open = True
+            code_block_language = line.replace("```", "").strip()
+            if regular_content:
+                console.print(Markdown("\n".join(regular_content)))
+                regular_content = []
+        elif line.startswith("```") and code_block_open:
+            code_block_open = False
+            snippet_text = "\n".join(code_block_content)
+            if code_blocks is not None:
+                code_blocks[str(code_block_id)] = snippet_text
+            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
+            console.print(f"Block {code_block_id}", style="blue", justify="right")
+            console.print(Markdown(formatted_code_block))
+            code_block_id += 1
+            code_block_content = []
+            code_block_language = ""
+        elif code_block_open:
+            code_block_content.append(line)
+        else:
+            regular_content.append(line)
+
+    if code_block_open:  # uh-oh, the code block was never closed.
+        console.print(Markdown("\n".join(code_block_content)))
+    elif regular_content:  # If there's any remaining regular content, print it
+        console.print(Markdown("\n".join(regular_content)))
 
 
 def open_editor_with_content(content: str):
@@ -126,19 +166,19 @@ def open_editor_with_content(content: str):
     console.print(Markdown(selected_content))
 
 
-def open_editor_with_last_response(messages):
+def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[str]:
     if messages:
         last_response = messages[-1]["content"]
         open_editor_with_content(last_response)
     else:
-        console.print("No previous response to edit", style="bold red")
+        console.print("No previous response to edit", style="error")
 
 
-def extract_code_blocks(content: str, code_blocks: dict):
+def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     lines = content.split("\n")
     code_block_id = 1
     code_block_open = False
-    code_block_content = []
+    code_block_content: List[str] = []
     language = ""
 
     for line in lines:
@@ -148,7 +188,10 @@ def extract_code_blocks(content: str, code_blocks: dict):
         elif line.startswith("```") and code_block_open:
             code_block_open = False
             snippet_text = "\n".join(code_block_content)
-            code_blocks[code_block_id] = {"content": snippet_text, "language": language}
+            code_blocks[str(code_block_id)] = {
+                "content": snippet_text,
+                "language": language,
+            }
             code_block_id += 1
             code_block_content = []
             language = ""
@@ -156,7 +199,7 @@ def extract_code_blocks(content: str, code_blocks: dict):
             code_block_content.append(line)
 
 
-def print_code_block_summary(code_blocks: dict):
+def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
     if code_blocks:
         console.print("\nCode blocks:", style="bold")
         for block_id, block_info in code_blocks.items():
@@ -165,7 +208,7 @@ def print_code_block_summary(code_blocks: dict):
             )
 
 
-def add_markdown_system_message(messages: list) -> None:
+def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
     """
     Add a system message to instruct the model to use Markdown formatting.
     """
@@ -175,41 +218,3 @@ def add_markdown_system_message(messages: list) -> None:
             "content": "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax.",
         }
     )
-
-
-def calculate_expense(
-    prompt_tokens: int,
-    completion_tokens: int,
-    prompt_rate: float,
-    completion_rate: float,
-) -> float:
-    """
-    Calculate the estimated expense based on token usage and pricing rates
-    """
-    return (prompt_tokens * prompt_rate + completion_tokens * completion_rate) / 1000
-
-
-def display_expense(
-    model: str,
-    prompt_tokens: int,
-    completion_tokens: int,
-    pricing_rate: Dict[str, Dict[str, float]],
-) -> None:
-    """
-    Given the model used, display total tokens used and estimated expense
-    """
-    total_tokens = prompt_tokens + completion_tokens
-    console.print(f"\nTotal tokens used: {total_tokens}", style="bold")
-
-    if model in pricing_rate:
-        total_expense = calculate_expense(
-            prompt_tokens,
-            completion_tokens,
-            pricing_rate[model]["prompt"],
-            pricing_rate[model]["completion"],
-        )
-        console.print(f"Estimated expense: ${total_expense:.6f}", style="bold green")
-    else:
-        console.print(
-            f"No expense estimate available for model {model}", style="bold yellow"
-        )

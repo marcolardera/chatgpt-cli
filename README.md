@@ -98,7 +98,7 @@ options:
 | `gpt-4o`                     | 0.005                 | 0.015                 |
 | `claude-3-5-sonnet-20240620` | 0.003                 | 0.015                 |
 | `claude-3-opus-20240229`     | 0.015                 | 0.075                 |
-| `claude-3-sonnet-20240229`   | 0.003                 | 0.015                 |
+| `claude-3-5-sonnet-20240620`   | 0.003                 | 0.015                 |
 | `claude-3-haiku-20240307`    | 0.00025               | 0.00125               |
 
 Pricing is calculated as $/1000 tokens.
