@@ -1,31 +1,31 @@
-from typing import Dict, List
+from typing import Dict, Any
 from prompt.prompt import console
+from config.config import get_budget_manager
 
 
 def display_expense(
-    model: str,
-    messages: List[Dict[str, str]],
-    pricing_rate: Dict[str, Dict[str, float]],
-    config: Dict,
-    current_tokens: int,
-    completion_tokens: int,
+    config: Dict[str, Any],
+    user: str,
 ) -> None:
-    total_tokens = current_tokens + completion_tokens
-    console.print(f"\nTotal tokens used: {total_tokens}", style="bold")
+    budget_manager = get_budget_manager()
 
-    if model in pricing_rate:
-        model_pricing = pricing_rate[model]
-        chat_expense = calculate_expense(
-            prompt_tokens=current_tokens,
-            completion_tokens=completion_tokens,
-            prompt_pricing=model_pricing["prompt"],
-            completion_pricing=model_pricing["completion"],
-        )
-        console.print(f"Estimated chat expense: ${chat_expense:.6f}", style="success")
-    else:
-        console.print(
-            f"No expense estimate available for model {model}", style="warning"
-        )
+    # Get the current cost and total budget for the user
+    current_cost = budget_manager.get_current_cost(user)
+    total_budget = budget_manager.get_total_budget(user)
+
+    # Calculate remaining budget
+    remaining_budget = total_budget - current_cost
+
+    console.print(f"\nCurrent cost: ${current_cost:.6f}", style="bold")
+    console.print(f"Total budget: ${total_budget:.2f}", style="bold")
+    console.print(f"Remaining budget: ${remaining_budget:.6f}", style="success")
+
+    # If you want to display model-specific costs
+    model_costs = budget_manager.get_model_cost(user)
+    if model_costs:
+        console.print("\nCost breakdown by model:", style="bold")
+        for model, cost in model_costs.items():
+            console.print(f"  {model}: ${cost:.6f}")
 
 
 def calculate_expense(

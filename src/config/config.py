@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 from xdg_base_dirs import xdg_config_home
 from typing import Any, Dict
+from litellm import BudgetManager
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -10,12 +11,8 @@ HISTORY_FILE = BASE / "history"
 SAVE_FOLDER = BASE / "session-history"
 
 DEFAULT_CONFIG = {
-    "supplier": "anthropic",
-    "openai_api_key": "<INSERT YOUR OPENAI API KEY HERE>",
-    "anthropic_api_key": "<INSERT YOUR ANTHROPIC API KEY HERE>",
-    "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
-    "gemini_api_key": "<INSERT YOUR GEMINI API KEY HERE>",
-    "model": "claude-3-5-sonnet-20240620",
+    "provider": "anthropic",
+    "model": "claude-3-sonnet-20240229",
     "temperature": 0.7,
     "markdown": True,
     "easy_copy": True,
@@ -23,94 +20,56 @@ DEFAULT_CONFIG = {
     "json_mode": False,
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
-    "openai_endpoint": "https://api.openai.com/v1",
-    "anthropic_endpoint": "https://api.anthropic.com/v1",
-    "gemini_endpoint": "https://generativelanguage.googleapis.com/v1beta",
-    "azure_endpoint": "https://xxxx.openai.azure.com/",
-    "azure_api_version": "2023-07-01-preview",
-    "azure_deployment_name": "gpt-35-turbo",
-    "azure_deployment_name_eb": "text-embedding-ada-002",
-    "storage_format": "markdown",
+    "storage_format": "markdown",  # Options: "markdown", "json"
     "embedding_model": "text-embedding-ada-002",
     "embedding_dimension": 1536,
     "max_context_tokens": 3500,
     "show_spinner": True,
     "max_tokens": 1024,
-}
-
-VALID_MODELS = {
-    "anthropic": [
-        "claude-3-opus-20240229",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-haiku-20240307",
-        "claude-2.1",
-        "claude-2.0",
-        "claude-instant-1.2",
-    ],
-    "openai": [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-3.5-turbo",
-    ],
-    "gemini": [
-        "gemini-1.5-flash",
-    ],
-}
-
-PRICING_RATE = {
-    "claude-3-opus-20240229": {"prompt": 15.00, "completion": 75.00},
-    "claude-3-5-sonnet-20240620": {"prompt": 3.00, "completion": 15.00},
-    "claude-3-haiku-20240307": {"prompt": 0.25, "completion": 1.25},
-    "claude-2.1": {"prompt": 8.00, "completion": 24.00},
-    "claude-2.0": {"prompt": 8.00, "completion": 24.00},
-    "claude-instant-1.2": {"prompt": 0.80, "completion": 2.40},
-    "gpt-4o": {"prompt": 5.00, "completion": 15.00},
-    "gpt-4o-mini": {"prompt": 0.15, "completion": 0.60},
-    "gpt-4-turbo": {"prompt": 0.35, "completion": 1.05},
-    "gpt-4": {"prompt": 0.35, "completion": 1.05},
-    "gpt-3.5-turbo": {"prompt": 0.35, "completion": 1.05},
-    "dall-e": {"prompt": 0.50, "completion": 1.50},
-    "tts": {"prompt": 0.50, "completion": 1.50},
-    "whisper": {"prompt": 0.50, "completion": 1.50},
-    "embeddings": {"prompt": 0.50, "completion": 1.50},
-    "moderation": {"prompt": 0.50, "completion": 1.50},
-    "gpt-base": {"prompt": 0.50, "completion": 1.50},
-    "gemini-1.5-flash": {"prompt": 0.50, "completion": 1.50},
+    "budget_enabled": True,
+    "budget_amount": 10.0,  # Default budget amount in USD
+    "budget_duration": "monthly",  # Options: "daily", "weekly", "monthly", "yearly"
+    "budget_user": "default_user",  # Default user for budget tracking
 }
 
 
 def load_config(config_file: str) -> Dict[str, Any]:
-    if not Path(config_file).exists():
+    if not os.path.exists(config_file):
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        with open(config_file, "w", encoding="utf-8") as file:
-            yaml.dump(DEFAULT_CONFIG, file, default_flow_style=False)
+        with open(config_file, "w") as f:
+            yaml.dump(DEFAULT_CONFIG, f)
         print(f"New config file initialized: {config_file}")
 
-    with open(config_file, encoding="utf-8") as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
 
-    for key, value in DEFAULT_CONFIG.items():
-        if key not in config:
-            config[key] = value
+    # Merge with default config to ensure all keys are present
+    merged_config = {**DEFAULT_CONFIG, **config}
 
-    # Add this block after loading the config
-    supplier = config.get("supplier", "anthropic")
-    api_key_name = f"{supplier}_api_key"
-    config["api_key"] = config.get(api_key_name, "")
+    print(f"Debug: Loaded config: {merged_config}")  # Add this line for debugging
 
-    return config
+    # Ensure the provider is set
+    if "provider" not in merged_config or not merged_config["provider"]:
+        raise ValueError("Provider is not set in the config file.")
+
+    # Ensure the API key for the selected provider is set
+    provider_key = f"{merged_config['provider']}_api_key"
+    if provider_key not in merged_config or not merged_config[provider_key]:
+        raise ValueError(
+            f"API key for {merged_config['provider']} is not set in the config file."
+        )
+
+    return merged_config
 
 
 def create_save_folder():
-    if not os.path.exists(SAVE_FOLDER):
-        os.mkdir(SAVE_FOLDER)
+    os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 
-def get_session_filename(config: Dict[str, Any]) -> str:
+def get_session_filename() -> str:
     from datetime import datetime
 
     now = datetime.now()
-    extension: str = config.get("storage_format", "md")
     date_str = now.strftime("%d-%m-%Y")
 
     existing_files = [f for f in os.listdir(SAVE_FOLDER) if f.startswith(date_str)]
@@ -121,11 +80,79 @@ def get_session_filename(config: Dict[str, Any]) -> str:
     else:
         session_index = 1
 
-    return f"{date_str}_{session_index}.{extension}"
+    return f"{date_str}_{session_index}.md"  # Always save as markdown
 
 
 def get_last_save_file() -> str | None:
-    files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith((".json", ".md"))]
+    files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".md")]
     if files:
         return max(files, key=lambda x: os.path.getctime(os.path.join(SAVE_FOLDER, x)))
     return None
+
+
+def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
+    budget_manager = BudgetManager(project_name="chatgpt-cli")
+    budget_manager.create_budget(
+        total_budget=config["budget_amount"],
+        user=config["budget_user"],
+        duration=config["budget_duration"],  # Set the duration here
+    )
+    return budget_manager
+
+
+def get_budget_manager() -> BudgetManager:
+    global budget_manager
+    if budget_manager is None:
+        budget_manager = initialize_budget_manager(config)
+    return budget_manager
+
+
+# def update_budget_usage(
+#     config: Dict[str, Any],
+#     model: str,
+#     prompt_tokens: int,
+#     completion_tokens: int,
+#     cost: float,
+# ) -> None:
+#     global budget_manager
+#     if config["budget_enabled"]:
+#         user = config["budget_user"]
+#         budget_manager.update_cost(
+#             user=user,
+#             model=model,
+#             prompt_tokens=prompt_tokens,
+#             completion_tokens=completion_tokens,
+#             cost=cost,
+#         )
+
+
+def check_budget_limit(config: Dict[str, Any]) -> bool:
+    global budget_manager
+    if config["budget_enabled"]:
+        user = config["budget_user"]
+        current_cost = budget_manager.get_current_cost(user)
+        total_budget = budget_manager.get_total_budget(user)
+        return current_cost <= total_budget
+    return True  # If budget is not enabled, always return True
+
+
+def get_proxy(config: Dict[str, Any]):
+    return (
+        {"http": config["proxy"], "https": config["proxy"]}
+        if config["use_proxy"]
+        else None
+    )
+
+
+def get_api_key(config: Dict[str, Any]) -> str:
+    provider = config["provider"]
+    key_name = f"{provider}_api_key"
+    api_key = config.get(key_name)
+    if not api_key:
+        raise ValueError(f"API key for {provider} is not set in the config file.")
+    return api_key
+
+
+# Initialize configuration, budget manager,
+config = load_config(CONFIG_FILE)
+budget_manager = initialize_budget_manager(config)

@@ -7,6 +7,17 @@ from config.config import SAVE_FOLDER
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
+    # If history_file is just a filename without a path, use the current directory
+    if not os.path.dirname(history_file):
+        history_file = os.path.join(os.getcwd(), history_file)
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(history_file), exist_ok=True)
+
+    if not os.path.exists(history_file):
+        # If the file doesn't exist, return an empty list
+        return []
+
     if history_file.endswith(".json"):
         with open(history_file, encoding="utf-8") as file:
             return json.load(file)

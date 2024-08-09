@@ -1,5 +1,5 @@
 from prompt_toolkit import PromptSession
-from typing import Callable, Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional
 import re
 import sys
 import tempfile
@@ -10,6 +10,7 @@ from prompt_toolkit import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
+
 
 # Initialize custom console
 console = create_custom_console()
@@ -33,17 +34,14 @@ def _(event: Any) -> None:
 def start_prompt(
     session: PromptSession[Any],
     config: Dict[str, Any],
-    copyable_blocks: Dict[str, str],  # Updated to use code_blocks
     messages: List[Dict[str, str]],
     prompt_tokens: int,
     completion_tokens: int,
-    context_manager: Optional[Any],
 ) -> str:
     # Store config and messages in the app state for access in key bindings
     session.app.state = {
         "config": config,
         "messages": messages,
-        "copyable_blocks": copyable_blocks,
     }
 
     while True:
@@ -59,7 +57,7 @@ def start_prompt(
         if message.lower().strip() == "/q":
             raise EOFError
         elif message.lower().startswith("/c"):
-            handle_copy_command(message, config, copyable_blocks, messages)
+            handle_copy_command(message, config, messages)
             continue
         elif message.lower().strip() == "/e":
             open_editor_with_last_response(messages)
@@ -67,24 +65,21 @@ def start_prompt(
         elif message.lower().strip() == "":
             raise KeyboardInterrupt
         else:
-            if context_manager:
-                context_manager.add_chunk(message)
             return message
 
 
 def handle_copy_command(
     message: str,
     config: Dict[str, Any],
-    code_blocks: Dict[str, str],  # Updated to use code_blocks
     messages: List[Dict[str, str]],
 ) -> None:
     if config["easy_copy"]:
         match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
         if match:
             block_id = int(match.group(1))
-            if str(block_id) in code_blocks:
+            if messages and block_id <= len(messages):
                 try:
-                    pyperclip.copy(code_blocks[str(block_id)])
+                    pyperclip.copy(messages[block_id - 1]["content"])
                     console.print(
                         f"Copied block {block_id} to clipboard", style="success"
                     )
@@ -218,3 +213,42 @@ def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
             "content": "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax.",
         }
     )
+
+
+def save_history(
+    config: Dict[str, Any],
+    model: str,
+    messages: List[Dict[str, str]],
+    save_file: str,
+    storage_format: str,
+):
+    if storage_format == "markdown":
+        save_history_markdown(config, model, messages, save_file)
+    elif storage_format == "json":
+        save_history_json(config, model, messages, save_file)
+    else:
+        raise ValueError(f"Unsupported storage format: {storage_format}")
+
+
+def save_history_markdown(
+    config: Dict[str, Any], model: str, messages: List[Dict[str, str]], save_file: str
+):
+    with open(save_file, "w") as f:
+        f.write(f"# Chat Session with {model}\n\n")
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            f.write(f"## {role.capitalize()}\n\n{content}\n\n")
+
+
+def save_history_json(
+    config: Dict[str, Any], model: str, messages: List[Dict[str, str]], save_file: str
+):
+    import json
+
+    data = {
+        "model": model,
+        "messages": messages,
+    }
+    with open(save_file, "w") as f:
+        json.dump(data, f, indent=2)

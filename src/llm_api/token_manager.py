@@ -13,7 +13,6 @@ from config.config import (
     CONFIG_FILE,
     HISTORY_FILE,
     SAVE_FOLDER,
-    PRICING_RATE,
 )
 from config.model_handler import validate_model, get_valid_models
 from config.api_key_handler import validate_api_key
@@ -104,7 +103,6 @@ class ModelCompleter(Completer):
     default="openai",
     help="Set the model supplier",
 )
-@click.option("-e", "--endpoint", "custom_endpoint", help="Set a custom API endpoint")
 @click.option(
     "--show-spinner/--no-spinner",
     default=True,
@@ -119,7 +117,6 @@ def main(
     non_interactive,
     json_mode,
     supplier,
-    custom_endpoint,
     show_spinner,
 ):
     """
@@ -133,7 +130,7 @@ def main(
     logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
 
     history = FileHistory(HISTORY_FILE)  # type: ignore
-    valid_models = get_valid_models(supplier)
+    valid_models = get_valid_models(CONFIG_FILE)
     completer = ModelCompleter(valid_models)
     session = PromptSession(history=history, multiline=multiline, completer=completer)
 
@@ -166,8 +163,6 @@ def main(
         config["model"] = model
     if supplier:
         config["supplier"] = supplier
-    if custom_endpoint:
-        config["endpoint"] = custom_endpoint
     config["show_spinner"] = show_spinner
 
     # Validate the model
@@ -229,26 +224,17 @@ def main(
 
     if not non_interactive:
         console.rule()
-    base_endpoint = custom_endpoint or config.get(f"{supplier}_endpoint")
-    base_endpoint = base_endpoint.rstrip("/") if base_endpoint else ""
 
     # Start chat
-    messages, current_tokens = chat_with_context(  # Capture current tokens
+    messages = chat_with_context(
         config=config,
         session=session,
         proxy=proxy,
-        base_endpoint=base_endpoint,
         show_spinner=show_spinner,
     )
 
     # Display expense
-    display_expense(
-        model=config["model"],
-        messages=messages,
-        pricing_rate=PRICING_RATE,
-        config=config,
-        current_tokens=current_tokens,  # Pass current tokens
-    )
+    display_expense(config=config, user=config["budget_user"])
 
     save_history(
         config=config,
