@@ -52,6 +52,14 @@ class ModelCompleter(Completer):
                 yield Completion(model, start_position=-len(word))
 
 
+class PathCompleter(Completer):
+    def get_completions(self, document, complete_event):
+        word = document.get_word_before_cursor()
+        for path in os.listdir("."):
+            if path.startswith(word):
+                yield Completion(path, start_position=-len(word))
+
+
 @click.command()
 @click.option(
     "-c",
@@ -173,6 +181,9 @@ def main(
     # Validate the model
     validate_model(config)
 
+    # Switch to path completion after model validation
+    session.completer = PathCompleter()
+
     # Validate the API key
     if not validate_api_key(config, supplier):
         console.print(
@@ -233,12 +244,14 @@ def main(
     base_endpoint = base_endpoint.rstrip("/") if base_endpoint else ""
 
     # Start chat
-    messages, current_tokens = chat_with_context(  # Capture current tokens
-        config=config,
-        session=session,
-        proxy=proxy,
-        base_endpoint=base_endpoint,
-        show_spinner=show_spinner,
+    messages, current_tokens, completion_tokens = (
+        chat_with_context(  # Capture current and completion tokens
+            config=config,
+            session=session,
+            proxy=proxy,
+            base_endpoint=base_endpoint,
+            show_spinner=show_spinner,
+        )
     )
 
     # Display expense
@@ -248,6 +261,7 @@ def main(
         pricing_rate=PRICING_RATE,
         config=config,
         current_tokens=current_tokens,  # Pass current tokens
+        completion_tokens=completion_tokens,  # Pass completion tokens
     )
 
     save_history(

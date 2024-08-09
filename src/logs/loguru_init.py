@@ -8,20 +8,24 @@ logger.remove()
 
 # Add a rotating file handler with colorful logs
 logger.add(
-    "logs/chatgpt_{time}.log",
-    rotation="1 week",  # Rotate logs every week
-    retention="1 month",  # Keep logs for 1 month
-    compression="zip",  # Compress logs
-    colorize=True,  # Enable colorful logs
-    level="INFO",
-    format="{time}<blue>{file}</blue><red>{module}</red><level>{message}</level> <cyan>{name}</cyan>:<cyan>{line}</cyan><yellow>{process}</yellow><green>{thread}</green><magenta>{elapsed}</magenta><red>{exception}</red><green>{function}</green>",
+    "file.log",
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+    "<level>{level: <8}</level> | "
+    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+    "<level>{message}</level>",
+    level="DEBUG",
+    rotation="10 MB",
+    compression="zip",
 )
 
 # Add a handler for stdout
 logger.add(
     sys.stdout,
     colorize=True,
-    format="{time}<blue>{file}</blue><red>{module}</red><level>{message}</level> <cyan>{name}</cyan>:<cyan>{line}</cyan><yellow>{process}</yellow><green>{thread}</green><magenta>{elapsed}</magenta><red>{exception}</red><green>{function}</green>",
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+    "<level>{level: <8}</level> | "
+    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+    "<level>{message}</level>",
     level="INFO",
 )
 

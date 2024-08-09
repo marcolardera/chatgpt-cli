@@ -83,7 +83,7 @@ def chat_with_context(
     proxy: Optional[Dict[str, str]],
     base_endpoint: str,
     show_spinner: bool,
-) -> (List[Dict[str, str]], int):  # Return current tokens
+) -> (List[Dict[str, str]], int, int):  # Return current and completion tokens
     messages: List[Dict[str, str]] = []
     prompt_tokens = 0
     completion_tokens = 0
@@ -135,4 +135,4 @@ def chat_with_context(
         except EOFError:
             break
 
-    return messages, current_tokens + completion_tokens  # Return total tokens
+    return messages, current_tokens, completion_tokens  # Return total tokens
