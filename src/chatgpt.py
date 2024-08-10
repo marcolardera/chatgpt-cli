@@ -297,14 +297,17 @@ def main(
                 )
 
                 if response:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": response.choices[0].message.content,
-                        }
-                    )
+                    if response:
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": response,
+                            }
+                        )
 
-                    print(response.choices[0].message.content)
+                        print(response)
+                    else:
+                        console.print("Failed to get a response", style="error")
 
                     # Update usage and budget
                     update_usage(config, response)

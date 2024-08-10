@@ -8,7 +8,8 @@ import litellm
 from prompt.expenses import display_expense
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
-litellm.set_verbose = True
+import os
+os.environ['LITELLM_LOG'] = 'DEBUG'
 
 
 def chat_with_context(
@@ -35,8 +36,18 @@ def chat_with_context(
             with Live(Spinner("dots"), refresh_per_second=10) as live:
                 live.update(Spinner("dots", text="Waiting for response..."))
                 response = litellm.completion(**completion_kwargs)
+                if isinstance(response, dict) and 'choices' in response:
+                    return response['choices'][0]['message']['content']
+                else:
+                    console.print("Unexpected response format", style="error")
+                    return None
         else:
             response = litellm.completion(**completion_kwargs)
+            if isinstance(response, dict) and 'choices' in response:
+                return response['choices'][0]['message']['content']
+            else:
+                console.print("Unexpected response format", style="error")
+                return None
 
         if response:
             try:
@@ -49,7 +60,11 @@ def chat_with_context(
             # Display updated expense information
             display_expense(config, user)
 
-        return response
+        if isinstance(response, dict) and 'choices' in response:
+            return response['choices'][0]['message']['content']
+        else:
+            console.print("Unexpected response format", style="error")
+            return None
 
     except KeyboardInterrupt:
         return None
