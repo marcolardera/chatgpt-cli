@@ -32,6 +32,7 @@ def chat_with_context(
             "api_key": api_key,
         }
 
+        console.print(f"Completion kwargs: {completion_kwargs}", style="info")
         if show_spinner:
             with Live(Spinner("dots"), refresh_per_second=10) as live:
                 live.update(Spinner("dots", text="Waiting for response..."))
@@ -43,6 +44,8 @@ def chat_with_context(
 
     except KeyboardInterrupt:
         return None
+
+    console.print(f"Response details: {response}", style="info")
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
         return None
@@ -58,5 +61,5 @@ def handle_response(response, budget_manager, config, user):
 
         return response['choices'][0]['message']['content']
     else:
-        console.print("Unexpected response format", style="error")
+        console.print(f"Unexpected response format: {response}", style="error")
         return None
