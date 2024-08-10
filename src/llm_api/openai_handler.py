@@ -37,16 +37,14 @@ def chat_with_context(
             with Live(Spinner("dots"), refresh_per_second=10) as live:
                 live.update(Spinner("dots", text="Waiting for response..."))
                 response = litellm.completion(**completion_kwargs)
-                handle_response(response, budget_manager, config, user)
+                response_content = handle_response(response, budget_manager, config, user)
         else:
             response = litellm.completion(**completion_kwargs)
-            handle_response(response, budget_manager, config, user)
+            response_content = handle_response(response, budget_manager, config, user)
 
     except KeyboardInterrupt:
         return None
-    except Exception as e:
-        console.print(f"An error occurred: {str(e)}", style="error")
-        return None
+    return response_content
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
         return None
