@@ -52,15 +52,15 @@ def chat_with_context(
         return None
 
 def handle_response(response, budget_manager, config, user):
-    if isinstance(response, dict) and 'choices' in response:
-        try:
-            budget_manager.update_cost(user=user, completion_obj=response)
-        except Exception as budget_error:
-            console.print(f"Budget update error: {str(budget_error)}", style="error")
+    try:
+        budget_manager.update_cost(user=user, completion_obj=response)
+    except Exception as budget_error:
+        console.print(f"Budget update error: {str(budget_error)}", style="error")
 
-        # Display updated expense information
-        display_expense(config, user)
+    # Display updated expense information
+    display_expense(config, user)
 
+    if hasattr(response, 'choices') and len(response.choices) > 0:
         return response.choices[0].message.content
     else:
         console.print(f"Unexpected response format: {response!r}", style="error")
