@@ -65,6 +65,3 @@ def handle_response(response, budget_manager, config, user):
     else:
         console.print(f"Unexpected response format: {response!r}", style="error")
         return None
-    else:
-        console.print(f"Unexpected response format: {response!r}", style="error")
-        return None
