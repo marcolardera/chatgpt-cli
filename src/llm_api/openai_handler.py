@@ -44,10 +44,10 @@ def chat_with_context(
 
     except KeyboardInterrupt:
         return None
-    return response_content
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
         return None
+    return response_content
 
 def handle_response(response, budget_manager, config, user):
     try:
