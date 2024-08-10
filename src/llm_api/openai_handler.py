@@ -60,8 +60,8 @@ def handle_response(response, budget_manager, config, user):
     # Display updated expense information
     display_expense(config, user)
 
-    if hasattr(response, 'choices') and len(response.choices) > 0:
-        return response.choices[0].message.content
+    if 'choices' in response and len(response['choices']) > 0:
+        return response['choices'][0]['message']['content']
     else:
         console.print(f"Unexpected response format: {response!r}", style="error")
         return None
