@@ -226,22 +226,34 @@ def main(
         console.rule()
 
     # Start chat
-    messages = chat_with_context(
+    response = chat_with_context(
         config=config,
         session=session,
         proxy=proxy,
         show_spinner=show_spinner,
     )
 
-    # Display expense
-    display_expense(config=config, user=config["budget_user"])
+    if response:
+        messages.append(
+            {
+                "role": "assistant",
+                "content": response,
+            }
+        )
 
-    save_history(
-        config=config,
-        model=config["model"],
-        messages=messages,
-        save_file=SAVE_FILE,
-    )
+        print(response)
+
+        # Display expense
+        display_expense(config=config, user=config["budget_user"])
+
+        save_history(
+            config=config,
+            model=config["model"],
+            messages=messages,
+            save_file=SAVE_FILE,
+        )
+    else:
+        console.print("Failed to get a response", style="error")
 
 
 if __name__ == "__main__":
