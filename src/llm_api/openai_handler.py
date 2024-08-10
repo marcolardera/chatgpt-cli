@@ -47,7 +47,7 @@ def chat_with_context(
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
         return None
-    return response_content
+    return response_content, response
 
 def handle_response(response, budget_manager, config, user):
     try:
@@ -59,7 +59,13 @@ def handle_response(response, budget_manager, config, user):
     display_expense(config, user)
 
     if 'choices' in response and len(response['choices']) > 0:
-        return response['choices'][0]['message']['content']
+        response_content = response['choices'][0]['message']['content']
+        response['usage'] = {
+            'prompt_tokens': response.get('usage', {}).get('prompt_tokens', 0),
+            'completion_tokens': response.get('usage', {}).get('completion_tokens', 0),
+            'total_tokens': response.get('usage', {}).get('total_tokens', 0)
+        }
+        return response_content, response
     else:
         console.print(f"Unexpected response format: {response!r}", style="error")
         return None

@@ -288,7 +288,7 @@ def main(
 
             # Check budget before making the API call
             if check_budget(config):
-                response = chat_with_context(
+                response_content, response = chat_with_context(
                     config=config,
                     messages=messages,
                     session=session,
@@ -297,42 +297,42 @@ def main(
                 )
 
                 if response:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": response,
-                        }
-                    )
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response_content,
+                    }
+                )
 
-                    print(response)
+                print(response_content)
 
-                    # Update usage and budget
-                    update_usage(config, response)
+                # Update usage and budget
+                update_usage(config, response)
 
-                    # Update token counts
-                    prompt_tokens += response.usage.prompt_tokens
-                    completion_tokens += response.usage.completion_tokens
+                # Update token counts
+                prompt_tokens += response['usage']['prompt_tokens']
+                completion_tokens += response['usage']['completion_tokens']
 
-                    # Display expense
-                    display_expense(
-                        model=config["model"],
-                        messages=messages,
-                        pricing_rate=model_cost(model=config["model"]),
-                        config=config,
-                        current_tokens=response.usage.prompt_tokens,
-                        completion_tokens=response.usage.completion_tokens,
-                    )
+                # Display expense
+                display_expense(
+                    model=config["model"],
+                    messages=messages,
+                    pricing_rate=model_cost(model=config["model"]),
+                    config=config,
+                    current_tokens=response['usage']['prompt_tokens'],
+                    completion_tokens=response['usage']['completion_tokens'],
+                )
 
-                    # Save history
-                    save_history(
-                        config=config,
-                        model=config["model"],
-                        messages=messages,
-                        save_file=SAVE_FILE,
-                        storage_format=config["storage_format"],
-                    )
-                else:
-                    console.print("Failed to get a response", style="error")
+                # Save history
+                save_history(
+                    config=config,
+                    model=config["model"],
+                    messages=messages,
+                    save_file=SAVE_FILE,
+                    storage_format=config["storage_format"],
+                )
+            else:
+                console.print("Failed to get a response", style="error")
             else:
                 console.print(
                     "Budget exceeded. Unable to make more API calls.", style="error"
