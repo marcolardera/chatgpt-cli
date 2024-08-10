@@ -61,7 +61,7 @@ def handle_response(response, budget_manager, config, user):
         # Display updated expense information
         display_expense(config, user)
 
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
     else:
-        console.print(f"Unexpected response format: {response}", style="error")
+        console.print(f"Unexpected response format: {response!r}", style="error")
         return None
