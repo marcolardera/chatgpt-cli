@@ -44,11 +44,13 @@ def chat_with_context(
 
     except KeyboardInterrupt:
         return None
-
-    console.print(f"Response details: {response}", style="info")
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
         return None
+    except Exception as e:
+        console.print(f"An error occurred: {str(e)}", style="error")
+        return None
+
 def handle_response(response, budget_manager, config, user):
     if isinstance(response, dict) and 'choices' in response:
         try:
