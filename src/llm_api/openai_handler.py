@@ -36,38 +36,27 @@ def chat_with_context(
             with Live(Spinner("dots"), refresh_per_second=10) as live:
                 live.update(Spinner("dots", text="Waiting for response..."))
                 response = litellm.completion(**completion_kwargs)
-                if isinstance(response, dict) and 'choices' in response:
-                    return response['choices'][0]['message']['content']
-                else:
-                    console.print("Unexpected response format", style="error")
-                    return None
+                handle_response(response, budget_manager, config, user)
         else:
             response = litellm.completion(**completion_kwargs)
-            if isinstance(response, dict) and 'choices' in response:
-                return response['choices'][0]['message']['content']
-            else:
-                console.print("Unexpected response format", style="error")
-                return None
-
-        if response:
-            try:
-                budget_manager.update_cost(user=user, completion_obj=response)
-            except Exception as budget_error:
-                console.print(
-                    f"Budget update error: {str(budget_error)}", style="error"
-                )
-
-            # Display updated expense information
-            display_expense(config, user)
-
-        if isinstance(response, dict) and 'choices' in response:
-            return response['choices'][0]['message']['content']
-        else:
-            console.print("Unexpected response format", style="error")
-            return None
+            handle_response(response, budget_manager, config, user)
 
     except KeyboardInterrupt:
         return None
     except Exception as e:
         console.print(f"An error occurred: {str(e)}", style="error")
+        return None
+def handle_response(response, budget_manager, config, user):
+    if isinstance(response, dict) and 'choices' in response:
+        try:
+            budget_manager.update_cost(user=user, completion_obj=response)
+        except Exception as budget_error:
+            console.print(f"Budget update error: {str(budget_error)}", style="error")
+
+        # Display updated expense information
+        display_expense(config, user)
+
+        return response['choices'][0]['message']['content']
+    else:
+        console.print("Unexpected response format", style="error")
         return None
