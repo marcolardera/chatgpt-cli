@@ -95,39 +95,12 @@ def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
     budget_manager.create_budget(
         total_budget=config["budget_amount"],
         user=config["budget_user"],
-        duration=config["budget_duration"],  # Set the duration here
+        duration=config["budget_duration"],
     )
     return budget_manager
 
 
-def get_budget_manager() -> BudgetManager:
-    global budget_manager
-    if budget_manager is None:
-        budget_manager = initialize_budget_manager(config)
-    return budget_manager
-
-
-# def update_budget_usage(
-#     config: Dict[str, Any],
-#     model: str,
-#     prompt_tokens: int,
-#     completion_tokens: int,
-#     cost: float,
-# ) -> None:
-#     global budget_manager
-#     if config["budget_enabled"]:
-#         user = config["budget_user"]
-#         budget_manager.update_cost(
-#             user=user,
-#             model=model,
-#             prompt_tokens=prompt_tokens,
-#             completion_tokens=completion_tokens,
-#             cost=cost,
-#         )
-
-
-def check_budget_limit(config: Dict[str, Any]) -> bool:
-    global budget_manager
+def check_budget(config: Dict[str, Any], budget_manager: BudgetManager) -> bool:
     if config["budget_enabled"]:
         user = config["budget_user"]
         current_cost = budget_manager.get_current_cost(user)
@@ -153,6 +126,6 @@ def get_api_key(config: Dict[str, Any]) -> str:
     return api_key
 
 
-# Initialize configuration, budget manager,
+# Initialize configuration and budget manager
 config = load_config(CONFIG_FILE)
 budget_manager = initialize_budget_manager(config)

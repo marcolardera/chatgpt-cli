@@ -2,11 +2,11 @@
     "default_user": {
         "total_budget": 10.0,
         "duration": 28,
-        "created_at": 1723216957.62905,
-        "last_updated_at": 1723216957.62905,
-        "current_cost": 1.35e-05,
+        "created_at": 1723444863.0200808,
+        "last_updated_at": 1723444863.0200808,
+        "current_cost": 0.0012612,
         "model_cost": {
-            "gpt-4o-mini-2024-07-18": 1.35e-05
+            "gpt-4o-mini-2024-07-18": 0.0012612
         }
     }
 }

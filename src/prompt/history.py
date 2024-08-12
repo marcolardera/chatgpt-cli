@@ -3,7 +3,7 @@ from typing import Dict, Any, List
 import os
 from datetime import datetime
 from prompt.custom_console import create_custom_console
-from config.config import SAVE_FOLDER
+from config.config import SAVE_FOLDER, budget_manager  # Import budget_manager
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
@@ -73,15 +73,24 @@ def save_history(
     model: str,
     messages: List[Dict[str, str]],
     save_file: str,
+    storage_format: str = "markdown",  # Add this parameter with a default value
 ) -> None:
     filepath = os.path.join(SAVE_FOLDER, save_file)
 
-    if config["storage_format"] == "json":
+    if storage_format.lower() == "json":
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "model": model,
                     "messages": messages,
+                    "budget_info": {
+                        "current_cost": budget_manager.get_current_cost(
+                            config["budget_user"]
+                        ),
+                        "total_budget": budget_manager.get_total_budget(
+                            config["budget_user"]
+                        ),
+                    },
                 },
                 f,
                 indent=4,
@@ -97,6 +106,15 @@ def save_history(
             for message in messages:
                 f.write(f"### {message['role'].capitalize()}\n\n")
                 f.write(f"{message['content']}\n\n")
+
+            # Add budget information
+            f.write("## Budget Information\n\n")
+            f.write(
+                f"Current Cost: ${budget_manager.get_current_cost(config['budget_user']):.6f}\n"
+            )
+            f.write(
+                f"Total Budget: ${budget_manager.get_total_budget(config['budget_user']):.2f}\n"
+            )
 
     console = create_custom_console()
     console.print(f"Session saved as: {save_file}", style="info")

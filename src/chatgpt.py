@@ -9,20 +9,23 @@ from config.config import (
     get_last_save_file,
     CONFIG_FILE,
     SAVE_FOLDER,
-    get_budget_manager,
     get_proxy,
+    check_budget,
+    budget_manager,  # Import the budget_manager instance
 )
 from config.model_handler import validate_model, get_valid_models
+from config.config import get_api_key
 from prompt.expenses import display_expense
 from prompt.history import load_history_data, save_history
 from typing import List, Dict, Union, Optional
 from llm_api.openai_handler import chat_with_context
 from prompt.custom_console import create_custom_console
 from logs.loguru_init import logger
-from litellm import check_valid_key, model_cost
+from litellm import check_valid_key
 from prompt.prompt import start_prompt
 from litellm import provider_list
 import logging
+from rich.markdown import Markdown
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -37,9 +40,6 @@ messages: List[Dict[str, Union[str, int]]] = []
 click.rich_click.USE_MARKDOWN = True
 click.rich_click.MAX_WIDTH = 100
 click.rich_click.SHOW_ARGUMENTS = True
-
-# Initialize budget manager
-budget_manager = get_budget_manager()
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -75,45 +75,14 @@ class PathCompleter(Completer):
                 pass  # Handle permission errors or non-existent directories silently
 
 
-def check_budget(config):
-    user = config["budget_user"]
-    current_cost = budget_manager.get_current_cost(user)
-    total_budget = budget_manager.get_total_budget(user)
-    return current_cost <= total_budget
-
-
-def update_usage(config, response):
-    user = config["budget_user"]
-    try:
-        logging.debug(f"Budget manager type: {type(budget_manager)}")
-        logging.debug(f"Budget manager attributes: {dir(budget_manager)}")
-        budget_manager.update_cost(user=user, completion_obj=response)
-    except Exception as e:
-        console.print(f"Error updating budget: {str(e)}", style="error")
-        logging.error(f"Error updating budget: {str(e)}")
-        logging.error(f"Response object: {response}")
-
-
 def get_usage_stats():
     stats = []
     for user in budget_manager.get_users():
-        user_stats = budget_manager.get_user_usage(user)
-        stats.append(
-            (
-                user,
-                user_stats["prompt_tokens"],
-                user_stats["completion_tokens"],
-                user_stats["total_tokens"],
-                user_stats["cost"],
-            )
-        )
+        current_cost = budget_manager.get_current_cost(user)
+        model_costs = budget_manager.get_model_cost(user)
+        total_budget = budget_manager.get_total_budget(user)
+        stats.append((user, current_cost, model_costs, total_budget))
     return stats
-
-
-def get_api_key(config):
-    provider = config["provider"]
-    key_name = f"{provider}_api_key"
-    return config.get(key_name)
 
 
 @click.command()
@@ -195,11 +164,6 @@ def main(
         config["storage_format"] = storage_format
 
     print(f"Debug 3: Config after all overrides: {config}")
-
-    # Initialize budget manager
-    budget_manager = get_budget_manager()
-
-    print(f"Debug 4: Config after initializations: {config}")
 
     # Print debug information
     print(f"Provider list: {provider_list}")
@@ -287,8 +251,8 @@ def main(
             messages.append({"role": "user", "content": user_input})
 
             # Check budget before making the API call
-            if check_budget(config):
-                response_content, response = chat_with_context(
+            if check_budget(config, budget_manager):
+                result = chat_with_context(
                     config=config,
                     messages=messages,
                     session=session,
@@ -296,41 +260,45 @@ def main(
                     show_spinner=show_spinner,
                 )
 
-                if response:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": response_content,
-                        }
-                    )
+                if result:
+                    response_content, response_obj = result
 
-                    print(response_content)
+                    if response_content:
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": response_content,
+                            }
+                        )
+                        console.print(Markdown(response_content))
 
-                    # Update usage and budget
-                    update_usage(config, response)
+                        # Update token counts
+                        prompt_tokens += response_obj["usage"]["prompt_tokens"]
+                        completion_tokens += response_obj["usage"]["completion_tokens"]
 
-                    # Update token counts
-                    prompt_tokens += response['usage']['prompt_tokens']
-                    completion_tokens += response['usage']['completion_tokens']
+                        # Update cost in BudgetManager
+                        budget_manager.update_cost(
+                            user=config["budget_user"],
+                            completion_obj=response_obj,
+                        )
 
-                    # Display expense
-                    display_expense(
-                        model=config["model"],
-                        messages=messages,
-                        pricing_rate=model_cost(model=config["model"]),
-                        config=config,
-                        current_tokens=response['usage']['prompt_tokens'],
-                        completion_tokens=response['usage']['completion_tokens'],
-                    )
+                        # Display expense
+                        display_expense(
+                            config=config,
+                            user=config["budget_user"],
+                            budget_manager=budget_manager,
+                        )
 
-                    # Save history
-                    save_history(
-                        config=config,
-                        model=config["model"],
-                        messages=messages,
-                        save_file=SAVE_FILE,
-                        storage_format=config["storage_format"],
-                    )
+                        # Save history
+                        save_history(
+                            config=config,
+                            model=config["model"],
+                            messages=messages,
+                            save_file=SAVE_FILE,
+                            storage_format=config["storage_format"],
+                        )
+                    else:
+                        console.print("Failed to get a response", style="error")
                 else:
                     console.print("Failed to get a response", style="error")
             else:
@@ -349,20 +317,14 @@ def main(
     # Display usage statistics
     stats = get_usage_stats()
     console.print("\nUsage Statistics:")
-    for user, prompt_tokens, completion_tokens, total_tokens, cost in stats:
+    for user, current_cost, model_costs, total_budget in stats:
         console.print(f"User: {user}")
-        console.print(f"  Prompt Tokens: {prompt_tokens}")
-        console.print(f"  Completion Tokens: {completion_tokens}")
-        console.print(f"  Total Tokens: {total_tokens}")
-        console.print(f"  Total Cost: ${cost:.4f}")
-
-    # Display budget information
-    user = config["budget_user"]
-    current_cost = budget_manager.get_current_cost(user)
-    total_budget = budget_manager.get_total_budget(user)
-    console.print(f"\nCurrent cost: ${current_cost:.2f}")
-    console.print(f"Total budget: ${total_budget:.2f}")
-    console.print(f"Remaining budget: ${total_budget - current_cost:.2f}")
+        console.print(f"Current Cost: ${current_cost:.6f}")
+        console.print(f"Total Budget: ${total_budget:.2f}")
+        console.print("Cost breakdown by model:")
+        for model, cost in model_costs.items():
+            console.print(f"  {model}: ${cost:.6f}")
+        console.print(f"Remaining Budget: ${total_budget - current_cost:.6f}\n")
 
 
 if __name__ == "__main__":

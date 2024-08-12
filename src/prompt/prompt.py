@@ -10,6 +10,7 @@ from prompt_toolkit import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
+from config.config import budget_manager  # Import budget_manager
 
 
 # Initialize custom console
@@ -37,19 +38,26 @@ def start_prompt(
     messages: List[Dict[str, str]],
     prompt_tokens: int,
     completion_tokens: int,
+    code_blocks: Dict[str, Dict[str, str]] = {},  # Add default value
 ) -> str:
-    # Store config and messages in the app state for access in key bindings
+    # Store config, messages, budget_manager, and code_blocks in the app state for access in key bindings
     session.app.state = {
         "config": config,
         "messages": messages,
+        "budget_manager": budget_manager,
+        "code_blocks": code_blocks,
     }
 
     while True:
         if config["non_interactive"]:
             message = sys.stdin.read()
         else:
+            current_cost = budget_manager.get_current_cost(config["budget_user"])
+            total_budget = budget_manager.get_total_budget(config["budget_user"])
             message = session.prompt(
-                HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>"),
+                HTML(
+                    f"<b>[{prompt_tokens + completion_tokens}] [{current_cost:.6f}/{total_budget:.2f}] >>> </b>"
+                ),
                 key_bindings=bindings,
             )
 
@@ -57,7 +65,7 @@ def start_prompt(
         if message.lower().strip() == "/q":
             raise EOFError
         elif message.lower().startswith("/c"):
-            handle_copy_command(message, config, messages)
+            handle_copy_command(message, config, code_blocks)
             continue
         elif message.lower().strip() == "/e":
             open_editor_with_last_response(messages)
@@ -71,30 +79,36 @@ def start_prompt(
 def handle_copy_command(
     message: str,
     config: Dict[str, Any],
-    messages: List[Dict[str, str]],
+    code_blocks: Dict[str, Dict[str, str]],
 ) -> None:
     if config["easy_copy"]:
-        match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
+        match = re.search(r"^/c(?:opy)?\s*(\d+)?", message.lower())
         if match:
-            block_id = int(match.group(1))
-            if messages and block_id <= len(messages):
-                try:
-                    pyperclip.copy(messages[block_id - 1]["content"])
+            block_id = match.group(1)
+            if block_id:
+                if block_id in code_blocks:
+                    try:
+                        pyperclip.copy(code_blocks[block_id]["content"])
+                        console.print(
+                            f"Copied block {block_id} to clipboard", style="success"
+                        )
+                    except pyperclip.PyperclipException:
+                        console.print(
+                            "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
+                            style="error",
+                        )
+                else:
                     console.print(
-                        f"Copied block {block_id} to clipboard", style="success"
+                        f"No code block with ID {block_id} available", style="error"
                     )
-                except pyperclip.PyperclipException:
-                    console.print(
-                        "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
-                        style="error",
-                    )
+            elif code_blocks:
+                last_block_id = max(code_blocks.keys())
+                pyperclip.copy(code_blocks[last_block_id]["content"])
+                console.print("Copied last code block to clipboard", style="success")
             else:
-                console.print(
-                    f"No code block with ID {block_id} available", style="error"
-                )
-        elif messages:
-            pyperclip.copy(messages[-1]["content"])
-            console.print("Copied previous response to clipboard", style="success")
+                console.print("No code blocks available to copy", style="error")
+        else:
+            console.print("Invalid copy command format", style="error")
     else:
         console.print("Easy copy is disabled in the configuration", style="error")
 
@@ -105,15 +119,11 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     If code_blocks is present, label each code block with an integer and store in the code_blocks map.
     """
     if code_blocks is None:
-        console.print(Markdown(content))
-        return
+        code_blocks = {}
 
     lines = content.split("\n")
-    code_block_id = 1 + max(
-        map(int, code_blocks.keys()), default=0
-    )  # Start from the next available ID
+    code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
-    code_block_language = ""
     code_block_content = []
     regular_content = []
 
@@ -127,23 +137,23 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         elif line.startswith("```") and code_block_open:
             code_block_open = False
             snippet_text = "\n".join(code_block_content)
-            if code_blocks is not None:
-                code_blocks[str(code_block_id)] = snippet_text
+            code_blocks[str(code_block_id)] = snippet_text
             formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
             console.print(f"Block {code_block_id}", style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
-            code_block_language = ""
         elif code_block_open:
             code_block_content.append(line)
         else:
             regular_content.append(line)
 
-    if code_block_open:  # uh-oh, the code block was never closed.
+    if code_block_open:
         console.print(Markdown("\n".join(code_block_content)))
-    elif regular_content:  # If there's any remaining regular content, print it
+    elif regular_content:
         console.print(Markdown("\n".join(regular_content)))
+
+    return code_blocks
 
 
 def open_editor_with_content(content: str):
@@ -171,7 +181,7 @@ def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[s
 
 def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     lines = content.split("\n")
-    code_block_id = 1
+    code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
     code_block_content: List[str] = []
     language = ""
@@ -249,6 +259,10 @@ def save_history_json(
     data = {
         "model": model,
         "messages": messages,
+        "budget_info": {
+            "current_cost": budget_manager.get_current_cost(config["budget_user"]),
+            "total_budget": budget_manager.get_total_budget(config["budget_user"]),
+        },
     }
     with open(save_file, "w") as f:
         json.dump(data, f, indent=2)

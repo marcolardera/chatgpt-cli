@@ -1,14 +1,13 @@
 from typing import Dict, Any
 from prompt.prompt import console
-from config.config import get_budget_manager
+from litellm import BudgetManager
 
 
 def display_expense(
     config: Dict[str, Any],
     user: str,
+    budget_manager: BudgetManager,
 ) -> None:
-    budget_manager = get_budget_manager()
-
     # Get the current cost and total budget for the user
     current_cost = budget_manager.get_current_cost(user)
     total_budget = budget_manager.get_total_budget(user)
