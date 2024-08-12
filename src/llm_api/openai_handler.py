@@ -10,7 +10,7 @@ import os
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
-os.environ["LITELLM_LOG"] = "DEBUG"
+# os.environ["LITELLM_LOG"] = "DEBUG"
 
 
 def chat_with_context(

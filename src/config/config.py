@@ -46,8 +46,6 @@ def load_config(config_file: str) -> Dict[str, Any]:
     # Merge with default config to ensure all keys are present
     merged_config = {**DEFAULT_CONFIG, **config}
 
-    print(f"Debug: Loaded config: {merged_config}")  # Add this line for debugging
-
     # Ensure the provider is set
     if "provider" not in merged_config or not merged_config["provider"]:
         raise ValueError("Provider is not set in the config file.")

@@ -41,7 +41,7 @@ click.rich_click.USE_MARKDOWN = True
 click.rich_click.MAX_WIDTH = 100
 click.rich_click.SHOW_ARGUMENTS = True
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 
 class ModelCompleter(Completer):
@@ -138,15 +138,15 @@ def main(
 
     # Load configuration
     config = load_config(config_file or CONFIG_FILE)
-    print(f"Debug 1: Config after load_config: {config}")
+    # print(f"Debug 1: Config after load_config: {config}")
 
     # Override config with command line options if provided
-    print(
-        f"Debug: Supplier argument value: {supplier}"
-    )  # Add this line to check the supplier value
+    # print(
+    #     f"Debug: Supplier argument value: {supplier}"
+    # )  # Add this line to check the supplier value
     if supplier is not None:  # Change this line
         config["provider"] = supplier
-    print(f"Debug 2: Config after supplier override: {config}")
+    # print(f"Debug 2: Config after supplier override: {config}")
 
     if api_key:
         config[f"{config['provider']}_api_key"] = api_key
@@ -163,13 +163,13 @@ def main(
     if storage_format:
         config["storage_format"] = storage_format
 
-    print(f"Debug 3: Config after all overrides: {config}")
+    # print(f"Debug 3: Config after all overrides: {config}")
 
     # Print debug information
-    print(f"Provider list: {provider_list}")
-    print(f"Provider from config: {config['provider']}")
+    # print(f"Provider list: {provider_list}")
+    # print(f"Provider from config: {config['provider']}")
     valid_models = get_valid_models(config)
-    print(f"Valid models for {config['provider']}: {valid_models}")
+    # print(f"Valid models for {config['provider']}: {valid_models}")
 
     # Validate the model
     if config["model"] not in valid_models:
