@@ -57,6 +57,10 @@ def load_config(config_file: str) -> Dict[str, Any]:
             f"API key for {merged_config['provider']} is not set in the config file."
         )
 
+    # Ensure storage_format is set, defaulting to "markdown" if not specified
+    if "storage_format" not in merged_config:
+        merged_config["storage_format"] = "markdown"
+
     return merged_config
 
 

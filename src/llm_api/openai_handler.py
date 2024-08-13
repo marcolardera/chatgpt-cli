@@ -3,10 +3,8 @@ from prompt.prompt import console
 from prompt_toolkit import PromptSession
 from rich.spinner import Spinner
 from rich.live import Live
-from config.config import get_api_key, budget_manager  # Import budget_manager
-from prompt.expenses import display_expense
+from config.config import get_api_key, budget_manager
 import litellm
-import os
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
@@ -26,16 +24,29 @@ def chat_with_context(
         api_messages = messages.copy()
         api_key = get_api_key(config)
 
+        # Handle Anthropic models
+        if config["provider"] == "anthropic":
+            for message in api_messages:
+                if message["role"] == "assistant" and "prefix" in message:
+                    message["content"] = f"{message['content']} {message['prefix']}"
+                    del message["prefix"]
+
+        # Ensure all messages have valid roles
+        valid_roles = ["system", "assistant", "user", "function", "tool"]
+        for message in api_messages:
+            if message["role"] not in valid_roles:
+                message["role"] = "user"  # Default to user if role is invalid
+
         completion_kwargs = {
             "model": config["model"],
             "messages": api_messages,
             "api_key": api_key,
         }
 
-        console.print(f"Completion kwargs: {completion_kwargs}", style="info")
         if show_spinner:
-            with Live(Spinner("dots"), refresh_per_second=10) as live:
-                live.update(Spinner("dots", text="Waiting for response..."))
+            with Live(
+                Spinner("dots", text="Waiting for response...", style="bold green")
+            ) as live:
                 response = litellm.completion(**completion_kwargs)
                 response_content, response_obj = handle_response(
                     response, budget_manager, config, user
@@ -64,7 +75,7 @@ def handle_response(response, budget_manager, config, user):
         console.print(f"Budget update error: {str(budget_error)}", style="error")
 
     # Display updated expense information
-    display_expense(config, user, budget_manager)
+    # display_expense(config, user, budget_manager)
 
     if hasattr(response, "choices") and len(response.choices) > 0:
         response_content = response.choices[0].message.content

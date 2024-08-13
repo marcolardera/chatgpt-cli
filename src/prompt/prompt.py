@@ -1,15 +1,16 @@
 from prompt_toolkit import PromptSession
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import re
 import sys
 import tempfile
 import subprocess
 import os
 import pyperclip
-from prompt_toolkit import HTML
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
+from rich.syntax import Syntax
 from config.config import budget_manager  # Import budget_manager
 
 
@@ -38,8 +39,8 @@ def start_prompt(
     messages: List[Dict[str, str]],
     prompt_tokens: int,
     completion_tokens: int,
-    code_blocks: Dict[str, Dict[str, str]] = {},  # Add default value
-) -> str:
+    code_blocks: Dict[str, Dict[str, str]] = {},
+) -> Tuple[Dict[str, str], Dict[str, Dict[str, str]]]:
     # Store config, messages, budget_manager, and code_blocks in the app state for access in key bindings
     session.app.state = {
         "config": config,
@@ -53,10 +54,10 @@ def start_prompt(
             message = sys.stdin.read()
         else:
             current_cost = budget_manager.get_current_cost(config["budget_user"])
-            total_budget = budget_manager.get_total_budget(config["budget_user"])
             message = session.prompt(
                 HTML(
-                    f"<b>[{prompt_tokens + completion_tokens}] [{current_cost:.6f}/{total_budget:.2f}] >>> </b>"
+                    f"<style fg='blue'>[Tokens: {prompt_tokens + completion_tokens}]</style> "
+                    f"<style fg='red'>[Cost: ${current_cost:.6f}]</style> >>> "
                 ),
                 key_bindings=bindings,
             )
@@ -73,7 +74,7 @@ def start_prompt(
         elif message.lower().strip() == "":
             raise KeyboardInterrupt
         else:
-            return message
+            return {"role": "user", "content": message}, code_blocks
 
 
 def handle_copy_command(
@@ -114,10 +115,6 @@ def handle_copy_command(
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
-    """
-    Print markdown formatted text to the terminal.
-    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
-    """
     if code_blocks is None:
         code_blocks = {}
 
@@ -125,6 +122,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
     code_block_content = []
+    code_block_language = ""
     regular_content = []
 
     for line in lines:
@@ -137,12 +135,20 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         elif line.startswith("```") and code_block_open:
             code_block_open = False
             snippet_text = "\n".join(code_block_content)
-            code_blocks[str(code_block_id)] = snippet_text
-            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
-            console.print(Markdown(formatted_code_block))
+            code_blocks[str(code_block_id)] = {
+                "content": snippet_text,
+                "language": code_block_language,
+            }
+
+            console.print(f"[underline red]Code Block {code_block_id}:[/underline red]")
+            syntax = Syntax(
+                snippet_text, code_block_language, theme="monokai", line_numbers=True
+            )
+            console.print(syntax)
+
             code_block_id += 1
             code_block_content = []
+            code_block_language = ""
         elif code_block_open:
             code_block_content.append(line)
         else:
@@ -231,38 +237,17 @@ def save_history(
     messages: List[Dict[str, str]],
     save_file: str,
     storage_format: str,
-):
-    if storage_format == "markdown":
-        save_history_markdown(config, model, messages, save_file)
-    elif storage_format == "json":
-        save_history_json(config, model, messages, save_file)
-    else:
-        raise ValueError(f"Unsupported storage format: {storage_format}")
+) -> str:
+    from prompt.history import save_history as save_history_impl
+
+    return save_history_impl(config, model, messages, save_file, storage_format)
 
 
-def save_history_markdown(
-    config: Dict[str, Any], model: str, messages: List[Dict[str, str]], save_file: str
-):
-    with open(save_file, "w") as f:
-        f.write(f"# Chat Session with {model}\n\n")
-        for message in messages:
-            role = message["role"]
-            content = message["content"]
-            f.write(f"## {role.capitalize()}\n\n{content}\n\n")
-
-
-def save_history_json(
-    config: Dict[str, Any], model: str, messages: List[Dict[str, str]], save_file: str
-):
-    import json
-
-    data = {
-        "model": model,
-        "messages": messages,
-        "budget_info": {
-            "current_cost": budget_manager.get_current_cost(config["budget_user"]),
-            "total_budget": budget_manager.get_total_budget(config["budget_user"]),
-        },
-    }
-    with open(save_file, "w") as f:
-        json.dump(data, f, indent=2)
+def get_usage_stats():
+    stats = []
+    for user in budget_manager.get_users():
+        current_cost = budget_manager.get_current_cost(user)
+        model_costs = budget_manager.get_model_cost(user)
+        total_budget = budget_manager.get_total_budget(user)
+        stats.append((user, current_cost, model_costs, total_budget))
+    return stats

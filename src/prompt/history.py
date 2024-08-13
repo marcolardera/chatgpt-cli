@@ -1,21 +1,17 @@
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import os
 from datetime import datetime
-from prompt.custom_console import create_custom_console
-from config.config import SAVE_FOLDER, budget_manager  # Import budget_manager
+from config.config import SAVE_FOLDER, budget_manager
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
-    # If history_file is just a filename without a path, use the current directory
     if not os.path.dirname(history_file):
         history_file = os.path.join(os.getcwd(), history_file)
 
-    # Ensure the directory exists
     os.makedirs(os.path.dirname(history_file), exist_ok=True)
 
     if not os.path.exists(history_file):
-        # If the file doesn't exist, return an empty list
         return []
 
     if history_file.endswith(".json"):
@@ -58,7 +54,6 @@ def load_history_data(history_file: str) -> Dict[str, Any]:
         return {
             "model": model,
             "messages": messages,
-            # Add these lines to include tokens if available
             "prompt_tokens": sum(
                 len(m["content"].split()) for m in messages if m["role"] == "user"
             ),
@@ -73,9 +68,12 @@ def save_history(
     model: str,
     messages: List[Dict[str, str]],
     save_file: str,
-    storage_format: str = "markdown",  # Add this parameter with a default value
-) -> None:
+    storage_format: str = "markdown",
+) -> str:
     filepath = os.path.join(SAVE_FOLDER, save_file)
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     if storage_format.lower() == "json":
         with open(filepath, "w", encoding="utf-8") as f:
@@ -106,8 +104,6 @@ def save_history(
             for message in messages:
                 f.write(f"### {message['role'].capitalize()}\n\n")
                 f.write(f"{message['content']}\n\n")
-
-            # Add budget information
             f.write("## Budget Information\n\n")
             f.write(
                 f"Current Cost: ${budget_manager.get_current_cost(config['budget_user']):.6f}\n"
@@ -116,5 +112,31 @@ def save_history(
                 f"Total Budget: ${budget_manager.get_total_budget(config['budget_user']):.2f}\n"
             )
 
-    console = create_custom_console()
-    console.print(f"Session saved as: {save_file}", style="info")
+    return save_file
+
+
+def calculate_tokens_and_cost(
+    messages: List[Dict[str, str]], model: str, user: str
+) -> Tuple[int, int, float]:
+    prompt_tokens = sum(
+        len(m["content"].split()) for m in messages if m["role"] == "user"
+    )
+    completion_tokens = sum(
+        len(m["content"].split()) for m in messages if m["role"] == "assistant"
+    )
+
+    # Create a temporary ModelResponse object
+    temp_response = {
+        "model": model,
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        },
+    }
+
+    # Update cost using the temporary response
+    budget_manager.update_cost(user=user, completion_obj=temp_response)
+    total_cost = budget_manager.get_current_cost(user)
+
+    return prompt_tokens, completion_tokens, total_cost

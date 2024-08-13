@@ -11,26 +11,26 @@ from config.config import (
     SAVE_FOLDER,
     get_proxy,
     check_budget,
-    budget_manager,  # Import the budget_manager instance
+    budget_manager,
 )
 from config.model_handler import validate_model, get_valid_models
 from config.config import get_api_key
-from prompt.expenses import display_expense
-from prompt.history import load_history_data, save_history
+from prompt.history import load_history_data, calculate_tokens_and_cost
 from typing import List, Dict, Union, Optional
 from llm_api.openai_handler import chat_with_context
-from prompt.custom_console import create_custom_console
 from logs.loguru_init import logger
 from litellm import check_valid_key
-from prompt.prompt import start_prompt
-from litellm import provider_list
+from prompt.prompt import start_prompt, get_usage_stats, save_history, print_markdown
+from prompt.custom_console import create_custom_console
 import logging
-from rich.markdown import Markdown
+from rich.console import Console
+from rich.text import Text
 
 # Install rich traceback handler
 install(show_locals=True)
 
 console = create_custom_console()
+rich_console = Console()
 
 # Initialize global variables
 SAVE_FILE: Optional[str] = None
@@ -72,17 +72,7 @@ class PathCompleter(Completer):
                             full_path = os.path.join(directory, entry.name)
                             yield Completion(full_path, start_position=-len(text))
             except OSError:
-                pass  # Handle permission errors or non-existent directories silently
-
-
-def get_usage_stats():
-    stats = []
-    for user in budget_manager.get_users():
-        current_cost = budget_manager.get_current_cost(user)
-        model_costs = budget_manager.get_model_cost(user)
-        total_budget = budget_manager.get_total_budget(user)
-        stats.append((user, current_cost, model_costs, total_budget))
-    return stats
+                pass  # Handle permission errors or non-existent directories
 
 
 @click.command()
@@ -134,19 +124,14 @@ def main(
     storage_format,
     restore_session,
 ):
-    global SAVE_FILE, messages
+    global SAVE_FILE, messages, prompt_tokens, completion_tokens
 
     # Load configuration
     config = load_config(config_file or CONFIG_FILE)
-    # print(f"Debug 1: Config after load_config: {config}")
 
     # Override config with command line options if provided
-    # print(
-    #     f"Debug: Supplier argument value: {supplier}"
-    # )  # Add this line to check the supplier value
-    if supplier is not None:  # Change this line
+    if supplier is not None:
         config["provider"] = supplier
-    # print(f"Debug 2: Config after supplier override: {config}")
 
     if api_key:
         config[f"{config['provider']}_api_key"] = api_key
@@ -163,13 +148,7 @@ def main(
     if storage_format:
         config["storage_format"] = storage_format
 
-    # print(f"Debug 3: Config after all overrides: {config}")
-
-    # Print debug information
-    # print(f"Provider list: {provider_list}")
-    # print(f"Provider from config: {config['provider']}")
     valid_models = get_valid_models(config)
-    # print(f"Valid models for {config['provider']}: {valid_models}")
 
     # Validate the model
     if config["model"] not in valid_models:
@@ -181,8 +160,11 @@ def main(
             if config["model"] in valid_models:
                 break
             else:
-                console.print(
-                    f"'{config['model']}' is not a valid model for provider '{config['provider']}'."
+                rich_console.print(
+                    Text(
+                        f"'{config['model']}' is not a valid model for provider '{config['provider']}'.",
+                        style="bold red",
+                    )
                 )
 
     validate_model(config)  # Pass the entire config dictionary
@@ -193,14 +175,26 @@ def main(
         if not check_valid_key(model=config["model"], api_key=api_key):
             raise ValueError(f"Invalid API key for {config['provider']}.")
     except ValueError as e:
-        console.print(str(e), style="bold red")
+        rich_console.print(Text(str(e), style="bold red"))
         return
 
     # Set up save file
     SAVE_FILE = save_file or get_session_filename()
 
     # Load history
-    messages = load_history_data(SAVE_FILE)
+    history_data = load_history_data(SAVE_FILE)
+    messages = []
+    if isinstance(history_data, dict) and "messages" in history_data:
+        messages = history_data["messages"]
+    elif isinstance(history_data, list):
+        messages = history_data
+    else:
+        messages = []
+
+    # Calculate tokens and cost from the loaded history
+    prompt_tokens, completion_tokens, total_cost = calculate_tokens_and_cost(
+        messages, config["model"], config["budget_user"]
+    )
 
     # Restore a previous session
     if restore_session:
@@ -216,6 +210,12 @@ def main(
                     os.path.join(SAVE_FOLDER, restore_file)
                 )
                 messages = history_data["messages"]
+                prompt_tokens, completion_tokens, total_cost = (
+                    calculate_tokens_and_cost(
+                        messages, config["model"], config["budget_user"]
+                    )
+                )
+                SAVE_FILE = restore_file  # Keep the restored session alive
                 logger.info(
                     f"Restored session: [bold green]{restore_file}",
                     extra={"highlighter": None},
@@ -232,23 +232,27 @@ def main(
     # Create the session object
     session = PromptSession(completer=PathCompleter())
 
-    # Initialize completion_tokens and context_manager
-    completion_tokens = 0
-    prompt_tokens = 0
+    # Initialize code_blocks
+    code_blocks = {}
+
+    # Initialize save_info
+    save_info = None
+
     while True:
         try:
-            user_input = start_prompt(
+            user_message, code_blocks = start_prompt(
                 session,
                 config,
                 messages,
                 prompt_tokens,
                 completion_tokens,
+                code_blocks,
             )
 
-            if user_input.lower() in ["exit", "quit", "q"]:
+            if user_message["content"].lower() in ["exit", "quit", "q"]:
                 break
 
-            messages.append({"role": "user", "content": user_input})
+            messages.append(user_message)
 
             # Check budget before making the API call
             if check_budget(config, budget_manager):
@@ -270,7 +274,7 @@ def main(
                                 "content": response_content,
                             }
                         )
-                        console.print(Markdown(response_content))
+                        code_blocks = print_markdown(response_content, code_blocks)
 
                         # Update token counts
                         prompt_tokens += response_obj["usage"]["prompt_tokens"]
@@ -282,49 +286,66 @@ def main(
                             completion_obj=response_obj,
                         )
 
-                        # Display expense
-                        display_expense(
-                            config=config,
-                            user=config["budget_user"],
-                            budget_manager=budget_manager,
-                        )
-
-                        # Save history
-                        save_history(
+                        # Update save_info instead of printing
+                        save_info = save_history(
                             config=config,
                             model=config["model"],
                             messages=messages,
                             save_file=SAVE_FILE,
                             storage_format=config["storage_format"],
                         )
+
                     else:
-                        console.print("Failed to get a response", style="error")
+                        rich_console.print(
+                            Text("Failed to get a response", style="bold red")
+                        )
                 else:
-                    console.print("Failed to get a response", style="error")
+                    rich_console.print(
+                        Text("Failed to get a response", style="bold red")
+                    )
             else:
-                console.print(
-                    "Budget exceeded. Unable to make more API calls.", style="error"
+                rich_console.print(
+                    Text(
+                        "Budget exceeded. Unable to make more API calls.",
+                        style="bold red blink",
+                    )
                 )
                 break
 
         except KeyboardInterrupt:
             break
         except Exception as e:
-            console.print(f"An error occurred: {str(e)}", style="error")
+            rich_console.print(Text(f"An error occurred: {str(e)}", style="bold red"))
 
-    console.print("Goodbye!")
+    rich_console.print(Text("Goodbye!", style="bold green"))
 
-    # Display usage statistics
+    # Display usage statistics and save information
     stats = get_usage_stats()
-    console.print("\nUsage Statistics:")
+    rich_console.print(Text("\nUsage Statistics:", style="underline red"))
     for user, current_cost, model_costs, total_budget in stats:
-        console.print(f"User: {user}")
-        console.print(f"Current Cost: ${current_cost:.6f}")
-        console.print(f"Total Budget: ${total_budget:.2f}")
-        console.print("Cost breakdown by model:")
-        for model, cost in model_costs.items():
-            console.print(f"  {model}: ${cost:.6f}")
-        console.print(f"Remaining Budget: ${total_budget - current_cost:.6f}\n")
+        rich_console.print(Text(f"User: {user}", style="white"))
+        rich_console.print(
+            Text(f"Total Cost: ${current_cost:.6f}", style="underline purple")
+        )
+        rich_console.print(Text(f"Total Budget: ${total_budget:.2f}", style="white"))
+        rich_console.print(Text("Cost breakdown by model:", style="white"))
+        if isinstance(model_costs, dict):
+            for model, cost in model_costs.items():
+                rich_console.print(Text(f"  {model}: ${cost:.6f}", style="white"))
+        else:
+            rich_console.print(Text(f"  Total: ${model_costs:.6f}", style="white"))
+        rich_console.print(
+            Text(
+                f"Remaining Budget: ${total_budget - current_cost:.6f}",
+                style="white",
+            )
+        )
+
+    # Display save information if available
+    if save_info:
+        rich_console.print(
+            Text(f"\nSession saved as: {save_info}", style="bold underline red")
+        )
 
 
 if __name__ == "__main__":
