@@ -34,17 +34,17 @@ DEFAULT_CONFIG = {
 }
 
 
-def load_config(config_file: str) -> Dict[str, Any]:
+def load_config(config_file: Path) -> Dict[str, Any]:
     """Loads the configuration from the config file.
 
     Args:
-        config_file (str): The path to the config file.
+        config_file (Path): The path to the config file.
 
     Returns:
         Dict[str, Any]: The configuration dictionary.
     """
-    if not os.path.exists(config_file):
-        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+    if not config_file.exists():
+        config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w") as f:
             yaml.dump(DEFAULT_CONFIG, f)
         print(f"New config file initialized: {config_file}")
@@ -121,8 +121,10 @@ def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
     Returns:
         BudgetManager: The initialized budget manager.
     """
-    # Change the working directory to ~/.config/chatgpt-cli
-    os.makedirs(BASE, exist_ok=True)
+    # Ensure the BASE directory exists
+    BASE.mkdir(parents=True, exist_ok=True)
+
+    # Set the working directory to the BASE
     os.chdir(BASE)
 
     budget_manager = BudgetManager(project_name="chatgpt-cli")
