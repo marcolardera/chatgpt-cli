@@ -6,14 +6,17 @@ import tempfile
 import subprocess
 import os
 import pyperclip
-from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from chatgpt.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
+from prompt_toolkit.formatted_text import HTML
 from chatgpt.config.config import budget_manager
+from rich.bar import Bar
+from rich.highlighter import Highlighter
 from rich.panel import Panel
-from rich.table import Table
+from prompt_toolkit.filters import Condition
+from rich.text import Text
 
 console = create_custom_console()
 
@@ -30,6 +33,20 @@ def _(event: Any) -> None:
 def _(event: Any) -> None:
     """Open the last response in the editor."""
     open_editor_with_last_response(event.app.state["messages"])
+
+
+def create_keybindings(multiline):
+    kb = KeyBindings()
+
+    @kb.add("escape", "enter", filter=Condition(lambda: multiline))
+    def _(event):
+        event.app.exit(result=event.app.current_buffer.text)
+
+    @kb.add("enter", filter=Condition(lambda: not multiline))
+    def _(event):
+        event.app.exit(result=event.app.current_buffer.text)
+
+    return kb
 
 
 def start_prompt(
@@ -69,21 +86,31 @@ def start_prompt(
             provider = config.get("provider", "Unknown")
             model = config.get("model", "Unknown")
 
-            limiter = "─" * 150  # Adjust the number based on your preferred width
+            # Create a spacer bar
+            spacer_bar = Bar(
+                size=1, begin=0, end=1, color="#a6e3a1", bgcolor="default"
+            )  # Catppuccin Green
 
+            # Print the header information
+            console.print(Text("ChatGPT CLI", style="#89dceb"))  # Catppuccin Sky
+            console.print(
+                Text(f"Provider: {provider}", style="#f9e2af")
+            )  # Catppuccin Yellow
+            console.print(Text(f"Model: {model}", style="#f9e2af"))  # Catppuccin Yellow
+            console.print(spacer_bar)
+
+            # Prepare the prompt text with tokens and cost
             prompt_text = (
-                f"<style fg='#89dceb'>ChatGPT CLI</style>\n"  # Catppuccin Sky
-                f"<style fg='#f9e2af'>Provider: {provider}</style>\n"  # Catppuccin Yellow
-                f"<style fg='#f9e2af'>Model: {model}</style>\n"  # Catppuccin Yellow
-                f"<style fg='#a6e3a1'>{limiter}</style>\n"  # Catppuccin Green
                 f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
                 f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>\n"
                 ">>> "
             )
 
+            kb = create_keybindings(config["multiline"])
             message = session.prompt(
                 HTML(prompt_text),
-                key_bindings=bindings,
+                multiline=config["multiline"],
+                key_bindings=kb,
             )
 
         # Handle special commands
@@ -138,6 +165,7 @@ def handle_copy_command(
             elif code_blocks:
                 last_block_id = max(code_blocks.keys())
                 pyperclip.copy(code_blocks[last_block_id]["content"])
+
                 console.print(
                     "Copied last code block to clipboard", style="#a6e3a1"
                 )  # Catppuccin Green
@@ -357,3 +385,11 @@ def get_usage_stats():
         total_budget = budget_manager.get_total_budget(user)
         stats.append((user, current_cost, model_costs, total_budget))
     return stats
+
+
+class UserAIHighlighter(Highlighter):
+    def highlight(self, text: Text) -> None:
+        if text.plain.startswith("User:"):
+            text.stylize("#f5c2e7")  # Catppuccin Pink
+        elif text.plain.startswith("AI:"):
+            text.stylize("#94e2d5")  # Catppuccin Teal
