@@ -10,6 +10,8 @@ from rich.console import Console
 from rich.text import Text
 from rich.traceback import install
 from litellm import check_valid_key
+from rich.panel import Panel
+from rich.table import Table
 
 # internal imports
 from chatgpt.config.config import (
@@ -333,30 +335,58 @@ def main(
 
     # Display usage statistics and save information
     stats = get_usage_stats()
-    rich_console.print(Text("\nUsage Statistics:", style="underline red"))
+
+    # Create a table for usage statistics
+    table = Table(
+        title="Usage Statistics",
+        show_header=False,
+        expand=True,
+        border_style="bold cyan",
+    )
+    table.add_column("Item", style="bold #f5e0dc")  # Catppuccin Rosewater
+    table.add_column("Value", style="#cba6f7")  # Catppuccin Mauve
+
     for user, current_cost, model_costs, total_budget in stats:
-        rich_console.print(Text(f"User: {user}", style="white"))
-        rich_console.print(
-            Text(f"Total Cost: ${current_cost:.6f}", style="underline purple")
-        )
-        rich_console.print(Text(f"Total Budget: ${total_budget:.2f}", style="white"))
-        rich_console.print(Text("Cost breakdown by model:", style="white"))
+        table.add_row("User", user)
+        table.add_row("Total Cost", f"${current_cost:.6f}")
+        table.add_row("Total Budget", f"${total_budget:.2f}")
+        table.add_row("Cost breakdown by model", "")
+
         if isinstance(model_costs, dict):
             for model, cost in model_costs.items():
-                rich_console.print(Text(f"  {model}: ${cost:.6f}", style="white"))
+                table.add_row(f"  {model}", f"${cost:.6f}")
         else:
-            rich_console.print(Text(f"  Total: ${model_costs:.6f}", style="white"))
-        rich_console.print(
-            Text(
-                f"Remaining Budget: ${total_budget - current_cost:.6f}",
-                style="white",
-            )
-        )
+            table.add_row("  Total", f"${model_costs:.6f}")
+
+        remaining_budget = total_budget - current_cost
+        table.add_row("Remaining Budget", f"${remaining_budget:.6f}")
+
+        # Add a separator between users if there are multiple
+        if (
+            stats.index((user, current_cost, model_costs, total_budget))
+            < len(stats) - 1
+        ):
+            table.add_row("", "")
+
+    # Create a panel to contain the table
+    panel = Panel(
+        table,
+        expand=False,
+        border_style="bold #89dceb",  # Catppuccin Sky
+        padding=(1, 1),
+    )
+
+    rich_console.print(panel)
 
     # Display save information if available
     if save_info:
         rich_console.print(
-            Text(f"\nSession saved as: {save_info}", style="bold underline red")
+            Panel(
+                f"Session saved as: {save_info}",
+                expand=False,
+                border_style="bold #f9e2af",  # Catppuccin Yellow
+                style="#f9e2af",
+            )
         )
 
     # Save the budget data
