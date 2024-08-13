@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chatgpt-cli"
-version = "0.3.11"
+version = "0.3.12"
 authors = [
     { name = "Marco Lardera", email = "larderamarco@hotmail.com" },
     { name = "Tadeas Fort", email = "business@tadeasfort.com" }
@@ -63,7 +63,6 @@ dependencies = [
     "regex==2024.7.24",
     "requests==2.32.3",
     "rich==13.7.1",
-    "rich-click==1.8.3",
     "rpds-py==0.20.0",
     "sniffio==1.3.1",
     "tiktoken==0.7.0",
@@ -84,7 +83,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [project.scripts]
-chatgpt-cli = "chatgpt.chatgpt:main"
+chatgpt-cli = "chatgpt.chatgpt:app"
 
 [project.urls]
 "Homepage" = "https://github.com/marcolardera/chatgpt-cli"
