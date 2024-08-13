@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chatgpt-cli"
-version = "0.4.1"
+version = "0.4.2"
 authors = [
     { name = "Marco Lardera", email = "larderamarco@hotmail.com" },
     { name = "Tadeas Fort", email = "business@tadeasfort.com" }
@@ -24,6 +24,7 @@ dependencies = [
     "annotated-types==0.7.0",
     "anyio==4.4.0",
     "attrs==24.2.0",
+    "catppuccin[pygments]==2.3.0",
     "certifi==2024.7.4",
     "charset-normalizer==3.3.2",
     "click==8.1.7",

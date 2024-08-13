@@ -60,6 +60,7 @@ typing-extensions = "*"
 yarl = "==1.9.4"
 zipp = "==3.19.2"
 typer = "*"
+catppuccin = {extras = ["pygments"], version = "*"}
 
 [dev-packages]
 # chatgpt-cli = "*"
