@@ -76,16 +76,18 @@ dependencies = [
     "zipp==3.19.2",
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project.scripts]
 chatgpt-cli = "chatgpt.chatgpt:main"
 
 [project.urls]
 "Homepage" = "https://github.com/marcolardera/chatgpt-cli"
 "Bug Tracker" = "https://github.com/marcolardera/chatgpt-cli/issues"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["chatgpt*"]
 
 [tool.setuptools.package-data]
 "chatgpt" = ["config_template.yaml"]
