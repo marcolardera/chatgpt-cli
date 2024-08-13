@@ -58,7 +58,7 @@ budget_user: "default_user"
 1. **Install the CLI**:
 
     ```console
-    pip install git+https://github.com/marcolardera/chatgpt-cli
+    pip install git+https://github.com/tadeasf/chatgpt-cli.git@refactor_anthropic_markdown_rich
     ```
 
 2. **Configure the CLI**:
