@@ -6,19 +6,18 @@ from loguru import logger
 
 
 def get_valid_models(config: Dict[str, Any]) -> List[str]:
-    """
-    Returns a list of valid LLMs based on the provider in the config
+    """Returns a list of valid LLMs based on the provider in the config.
 
     Args:
-        config: The configuration dictionary
+        config: The configuration dictionary.
 
     Returns:
-        A list of valid LLMs
+        A list of valid LLMs.
     """
     logger.debug(f"Entering get_valid_models with config: {config}")
     try:
         provider = config["provider"]
-        valid_models = []
+        valid_models: List[str] = []
 
         # Check if the API key for the provider is set in the config
         provider_key = f"{provider}_api_key"
@@ -34,10 +33,15 @@ def get_valid_models(config: Dict[str, Any]) -> List[str]:
         return valid_models
     except Exception as e:
         logger.error(f"Error in get_valid_models: {str(e)}")
-        return []  # NON-Blocking
+        return []
 
 
 def validate_provider(config: Dict[str, Any]) -> None:
+    """Validates the provider in the config and prompts the user for a valid one if necessary.
+
+    Args:
+        config: The configuration dictionary.
+    """
     if config["provider"] not in provider_list:
         session = PromptSession()
         provider_completer = WordCompleter(provider_list)
@@ -60,6 +64,11 @@ def validate_provider(config: Dict[str, Any]) -> None:
 
 
 def validate_model(config: Dict[str, Any]) -> None:
+    """Validates the model in the config and prompts the user for a valid one if necessary.
+
+    Args:
+        config: The configuration dictionary.
+    """
     valid_models = get_valid_models(config)
     if config["model"] not in valid_models:
         session = PromptSession()
