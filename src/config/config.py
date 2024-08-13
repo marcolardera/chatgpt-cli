@@ -9,6 +9,7 @@ BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
 HISTORY_FILE = BASE / "history"
 SAVE_FOLDER = BASE / "session-history"
+USER_COST_FILE = BASE / "user_cost.json"  # Define the path for user cost file
 
 DEFAULT_CONFIG = {
     "provider": "anthropic",
@@ -120,12 +121,18 @@ def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
     Returns:
         BudgetManager: The initialized budget manager.
     """
+    # Change the working directory to ~/.config/chatgpt-cli
+    os.makedirs(BASE, exist_ok=True)
+    os.chdir(BASE)
+
     budget_manager = BudgetManager(project_name="chatgpt-cli")
-    budget_manager.create_budget(
-        total_budget=config["budget_amount"],
-        user=config["budget_user"],
-        duration=config["budget_duration"],
-    )
+    budget_manager.load_data()  # Load the budget data from the previous session
+    if not budget_manager.is_valid_user(config["budget_user"]):
+        budget_manager.create_budget(
+            total_budget=config["budget_amount"],
+            user=config["budget_user"],
+            duration=config["budget_duration"],
+        )
     return budget_manager
 
 
