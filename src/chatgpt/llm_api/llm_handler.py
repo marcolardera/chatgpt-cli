@@ -5,6 +5,7 @@ from chatgpt.config.config import get_api_key, budget_manager
 from litellm.budget_manager import BudgetManager
 import litellm
 from rich.panel import Panel
+from rich.text import Text
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
@@ -59,7 +60,7 @@ def chat_with_context(
         if show_spinner:
             with console.status(
                 "[bold #a6e3a1]Waiting for response...",
-                spinner="dots",  # Catppuccin Green
+                spinner="bouncingBar",  # Catppuccin Green
             ) as status:
                 response = litellm.completion(**completion_kwargs)
                 status.update(
@@ -86,8 +87,13 @@ def chat_with_context(
         return None
     except Exception as e:
         console.print(
-            Panel(f"An error occurred: {str(e)}", style="#f38ba8")
-        )  # Catppuccin Red
+            Panel(
+                Text(f"An error occurred: {str(e)}", style="white"),
+                title="Error",
+                border_style="bold #f38ba8",  # Catppuccin Red
+                expand=False,
+            )
+        )
         return None
     return response_content, response_obj
 
@@ -111,8 +117,13 @@ def handle_response(
         budget_manager.update_cost(user=user, completion_obj=response)
     except Exception as budget_error:
         console.print(
-            Panel(f"Budget update error: {str(budget_error)}", style="#f38ba8")
-        )  # Catppuccin Red
+            Panel(
+                Text(f"Budget update error: {str(budget_error)}", style="white"),
+                title="Error",
+                border_style="bold #f38ba8",  # Catppuccin Red
+                expand=False,
+            )
+        )
 
     if hasattr(response, "choices") and len(response.choices) > 0:
         response_content = response.choices[0].message.content
@@ -139,6 +150,11 @@ def handle_response(
         return response_content, response_obj
     else:
         console.print(
-            Panel(f"Unexpected response format: {response!r}", style="#f38ba8")
-        )  # Catppuccin Red
+            Panel(
+                Text(f"Unexpected response format: {response!r}", style="white"),
+                title="Error",
+                border_style="bold #f38ba8",  # Catppuccin Red
+                expand=False,
+            )
+        )
         return None, None
