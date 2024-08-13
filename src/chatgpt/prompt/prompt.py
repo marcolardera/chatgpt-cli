@@ -65,11 +65,22 @@ def start_prompt(
             message = sys.stdin.read()
         else:
             current_cost = budget_manager.get_current_cost(config["budget_user"])
+            provider = config.get("provider", "Unknown")
+            model = config.get("model", "Unknown")
+
+            limiter = "─" * 150  # Adjust the number based on your preferred width
+
+            prompt_text = (
+                f"<style fg='cyan'>ChatGPT CLI</style>\n"
+                f"<style fg='yellow'>Provider: {provider}</style>\n"
+                f"<style fg='yellow'>Model: {model}</style>\n"
+                f"<style fg='green'>{limiter}</style>\n"
+                f"<style fg='blue'>[Tokens: {prompt_tokens + completion_tokens}]</style> "
+                f"<style fg='red'>[Cost: ${current_cost:.6f}]</style> >>> "
+            )
+
             message = session.prompt(
-                HTML(
-                    f"<style fg='blue'>[Tokens: {prompt_tokens + completion_tokens}]</style> "
-                    f"<style fg='red'>[Cost: ${current_cost:.6f}]</style> >>> "
-                ),
+                HTML(prompt_text),
                 key_bindings=bindings,
             )
 
