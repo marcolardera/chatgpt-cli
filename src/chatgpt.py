@@ -124,7 +124,7 @@ def main(
     storage_format,
     restore_session,
 ):
-    global SAVE_FILE, messages, prompt_tokens, completion_tokens
+    global SAVE_FILE, messages
 
     # Load configuration
     config = load_config(config_file or CONFIG_FILE)
@@ -191,12 +191,7 @@ def main(
     else:
         messages = []
 
-    # Calculate tokens and cost from the loaded history
-    prompt_tokens, completion_tokens, total_cost = calculate_tokens_and_cost(
-        messages, config["model"], config["budget_user"]
-    )
-
-    # Restore a previous session
+    # Restore a previous session or start a new one
     if restore_session:
         if restore_session == "last":
             last_session = get_last_save_file()
@@ -210,11 +205,6 @@ def main(
                     os.path.join(SAVE_FOLDER, restore_file)
                 )
                 messages = history_data["messages"]
-                prompt_tokens, completion_tokens, total_cost = (
-                    calculate_tokens_and_cost(
-                        messages, config["model"], config["budget_user"]
-                    )
-                )
                 SAVE_FILE = restore_file  # Keep the restored session alive
                 logger.info(
                     f"Restored session: [bold green]{restore_file}",
@@ -225,6 +215,8 @@ def main(
                     f"[red bold]File {restore_file} not found",
                     extra={"highlighter": None},
                 )
+    else:
+        messages = []
 
     # Get proxy and base_endpoint
     proxy = get_proxy(config)
@@ -244,8 +236,6 @@ def main(
                 session,
                 config,
                 messages,
-                prompt_tokens,
-                completion_tokens,
                 code_blocks,
             )
 
@@ -275,16 +265,6 @@ def main(
                             }
                         )
                         code_blocks = print_markdown(response_content, code_blocks)
-
-                        # Update token counts
-                        prompt_tokens += response_obj["usage"]["prompt_tokens"]
-                        completion_tokens += response_obj["usage"]["completion_tokens"]
-
-                        # Update cost in BudgetManager
-                        budget_manager.update_cost(
-                            user=config["budget_user"],
-                            completion_obj=response_obj,
-                        )
 
                         # Update save_info instead of printing
                         save_info = save_history(

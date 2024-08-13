@@ -21,6 +21,7 @@ lib/
 lib64/
 parts/
 sdist/
+user_cost.json
 var/
 wheels/
 share/python-wheels/
