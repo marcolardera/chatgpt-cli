@@ -1,10 +1,9 @@
 from typing import Dict, Any, List, Optional, Tuple
 from prompt.prompt import console
 from prompt_toolkit import PromptSession
-from rich.panel import Panel
 from config.config import get_api_key, budget_manager
+from litellm.budget_manager import BudgetManager
 import litellm
-import time
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
@@ -18,6 +17,19 @@ def chat_with_context(
     proxy: Optional[Dict[str, str]],
     show_spinner: bool,
 ) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """
+    Sends a message to the LLM with the given context and returns the response.
+
+    Args:
+        config: The configuration dictionary.
+        messages: The list of messages to send to the LLM.
+        session: The prompt session.
+        proxy: The proxy configuration.
+        show_spinner: Whether to show a spinner while waiting for the response.
+
+    Returns:
+        A tuple containing the response content and the response object, or None if an error occurred.
+    """
     user = config["budget_user"]
 
     try:
@@ -47,14 +59,14 @@ def chat_with_context(
             with console.status(
                 "[bold green]Waiting for response...", spinner="dots"
             ) as status:
-                start_time = time.time()
+                # start_time = time.time()
                 response = litellm.completion(**completion_kwargs)
-                elapsed_time = time.time() - start_time
+                # elapsed_time = time.time() - start_time
                 status.update(status="[bold green]Response received!")
 
-            console.print(
-                Panel(f"Response time: {elapsed_time:.2f} seconds", expand=False)
-            )
+            # console.print(
+            #     Panel(f"Response time: {elapsed_time:.2f} seconds", expand=False)
+            # )
 
             response_content, response_obj = handle_response(
                 response, budget_manager, config, user
@@ -76,7 +88,21 @@ def chat_with_context(
     return response_content, response_obj
 
 
-def handle_response(response, budget_manager, config, user):
+def handle_response(
+    response: Any, budget_manager: BudgetManager, config: Dict[str, Any], user: str
+) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """
+    Handles the response from the LLM and updates the budget.
+
+    Args:
+        response: The response object from the LLM.
+        budget_manager: The budget manager.
+        config: The configuration dictionary.
+        user: The user's name.
+
+    Returns:
+        A tuple containing the response content and the response object, or None if an error occurred.
+    """
     try:
         budget_manager.update_cost(user=user, completion_obj=response)
     except Exception as budget_error:
