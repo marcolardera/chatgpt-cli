@@ -14,22 +14,20 @@ from rich.syntax import Syntax
 from config.config import budget_manager
 from rich.panel import Panel
 
-# Initialize custom console
 console = create_custom_console()
 
-# Define key bindings
 bindings = KeyBindings()
 
 
 @bindings.add("c-q")
 def _(event: Any) -> None:
-    "Quit the application."
+    """Quit the application."""
     raise EOFError
 
 
 @bindings.add("c-e")
 def _(event: Any) -> None:
-    "Open the last response in the editor."
+    """Open the last response in the editor."""
     open_editor_with_last_response(event.app.state["messages"])
 
 
@@ -41,6 +39,19 @@ def start_prompt(
     completion_tokens: int,
     code_blocks: Dict[str, Dict[str, str]] = {},
 ) -> Tuple[Dict[str, str], Dict[str, Dict[str, str]]]:
+    """Starts the prompt loop and handles user input.
+
+    Args:
+        session: The prompt session.
+        config: The configuration dictionary.
+        messages: The list of messages to send to the LLM.
+        prompt_tokens: The number of tokens used for the prompt.
+        completion_tokens: The number of tokens used for the completion.
+        code_blocks: A dictionary of code blocks extracted from the LLM response.
+
+    Returns:
+        A tuple containing the user's message and the updated code blocks.
+    """
     # Store config, messages, budget_manager, and code_blocks in the app state for access in key bindings
     session.app.state = {
         "config": config,
@@ -82,6 +93,13 @@ def handle_copy_command(
     config: Dict[str, Any],
     code_blocks: Dict[str, Dict[str, str]],
 ) -> None:
+    """Handles the /copy command to copy code blocks to the clipboard.
+
+    Args:
+        message: The user's message.
+        config: The configuration dictionary.
+        code_blocks: A dictionary of code blocks extracted from the LLM response.
+    """
     if config["easy_copy"]:
         match = re.search(r"^/c(?:opy)?\s*(\d+)?", message.lower())
         if match:
@@ -115,6 +133,12 @@ def handle_copy_command(
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
+    """Prints Markdown content with code blocks highlighted.
+
+    Args:
+        content: The Markdown content to print.
+        code_blocks: A dictionary of code blocks extracted from the LLM response.
+    """
     if code_blocks is None:
         code_blocks = {}
 
@@ -167,6 +191,11 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
 
 
 def open_editor_with_content(content: str):
+    """Opens the default editor with the given content.
+
+    Args:
+        content: The content to open in the editor.
+    """
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".md", delete=False) as temp:
         temp.write(content)
         temp.flush()
@@ -182,6 +211,14 @@ def open_editor_with_content(content: str):
 
 
 def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[str]:
+    """Opens the default editor with the last LLM response.
+
+    Args:
+        messages: The list of messages sent to and received from the LLM.
+
+    Returns:
+        None.
+    """
     if messages:
         last_response = messages[-1]["content"]
         open_editor_with_content(last_response)
@@ -190,6 +227,12 @@ def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[s
 
 
 def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
+    """Extracts code blocks from the given content.
+
+    Args:
+        content: The content to extract code blocks from.
+        code_blocks: A dictionary to store the extracted code blocks.
+    """
     lines = content.split("\n")
     code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
@@ -215,6 +258,11 @@ def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
 
 
 def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
+    """Prints a summary of the extracted code blocks.
+
+    Args:
+        code_blocks: A dictionary of code blocks extracted from the LLM response.
+    """
     if code_blocks:
         console.print("\nCode blocks:", style="bold")
         for block_id, block_info in code_blocks.items():
@@ -235,19 +283,12 @@ def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
     )
 
 
-def save_history(
-    config: Dict[str, Any],
-    model: str,
-    messages: List[Dict[str, str]],
-    save_file: str,
-    storage_format: str,
-) -> str:
-    from prompt.history import save_history as save_history_impl
-
-    return save_history_impl(config, model, messages, save_file, storage_format)
-
-
 def get_usage_stats():
+    """Retrieves usage statistics for all users.
+
+    Returns:
+        A list of tuples containing user information, current cost, model costs, and total budget.
+    """
     stats = []
     for user in budget_manager.get_users():
         current_cost = budget_manager.get_current_cost(user)
