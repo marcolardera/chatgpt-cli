@@ -17,7 +17,7 @@ from config.model_handler import validate_model, get_valid_models
 from config.config import get_api_key
 from prompt.history import load_history_data
 from typing import List, Dict, Union, Optional
-from llm_api.openai_handler import chat_with_context
+from llm_api.llm_handler import chat_with_context
 from logs.loguru_init import logger
 from litellm import check_valid_key
 from prompt.prompt import start_prompt, get_usage_stats, save_history, print_markdown
