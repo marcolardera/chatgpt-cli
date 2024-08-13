@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any, List, Tuple
 import os
 from datetime import datetime
-from config.config import SAVE_FOLDER, budget_manager
+from chatgpt.config.config import SAVE_FOLDER, budget_manager
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:

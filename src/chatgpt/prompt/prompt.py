@@ -8,7 +8,7 @@ import os
 import pyperclip
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
-from prompt.custom_console import create_custom_console
+from chatgpt.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 from config.config import budget_manager

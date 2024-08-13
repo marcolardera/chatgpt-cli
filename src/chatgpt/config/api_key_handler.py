@@ -2,9 +2,9 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from typing import Dict
 import yaml
-from prompt.prompt import console
+from chatgpt.prompt.prompt import console
 from litellm import check_valid_key
-from config.config import CONFIG_FILE
+from chatgpt.config.config import CONFIG_FILE
 
 
 def get_and_update_api_key(config: Dict, supplier: str) -> bool:

@@ -1,14 +1,18 @@
+# native imports
 import os
 from typing import List, Dict, Union, Optional
 
+# external imports
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 import rich_click as click
 from rich.console import Console
 from rich.text import Text
 from rich.traceback import install
+from llm_api.llm_handler import chat_with_context
 
-from config.config import (
+# internal imports
+from chatgpt.config.config import (
     load_config,
     get_session_filename,
     get_last_save_file,
@@ -18,16 +22,14 @@ from config.config import (
     check_budget,
     initialize_budget_manager,
 )
-from config.model_handler import validate_model, get_valid_models
-from config.config import get_api_key
+from chatgpt.config.model_handler import validate_model, get_valid_models
+from chatgpt.config.config import get_api_key
 from litellm import check_valid_key
-from logs.loguru_init import logger
-from prompt.custom_console import create_custom_console
-from prompt.history import load_history_data, save_history
-from prompt.prompt import start_prompt, get_usage_stats, print_markdown
-from llm_api.llm_handler import chat_with_context
+from chatgpt.logs.loguru_init import logger
+from chatgpt.prompt.custom_console import create_custom_console
+from chatgpt.prompt.history import load_history_data, save_history
+from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
 
-import logging
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -43,8 +45,6 @@ messages: List[Dict[str, Union[str, int]]] = []
 click.rich_click.USE_MARKDOWN = True
 click.rich_click.MAX_WIDTH = 100
 click.rich_click.SHOW_ARGUMENTS = True
-
-logging.basicConfig(level=logging.WARNING)
 
 
 class ModelCompleter(Completer):

@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional, Tuple
 from prompt.prompt import console
 from prompt_toolkit import PromptSession
-from config.config import get_api_key, budget_manager
+from chatgpt.config.config import get_api_key, budget_manager
 from litellm.budget_manager import BudgetManager
 import litellm
 
