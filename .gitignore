@@ -4,10 +4,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+.cursorignore
+.DS_Store
 # C extensions
 *.so
-
+config_tadeasfort.yml
 # Distribution / packaging
 .Python
 build/
@@ -20,6 +21,7 @@ lib/
 lib64/
 parts/
 sdist/
+user_cost.json
 var/
 wheels/
 share/python-wheels/
@@ -166,3 +168,5 @@ session-history/
 
 # JetBrains IDE config files
 .idea/
+.vscode/settings.json
+.aider*

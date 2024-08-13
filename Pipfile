@@ -1,0 +1,31 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+click = "*"
+prompt-toolkit = "*"
+requests = "*"
+rich = "*"
+xdg-base-dirs = "*"
+pyperclip = "*"
+rich-click = "*"
+openai = "*"
+loguru = "*"
+litellm = "*"
+pysocks = "*"
+urllib3 = "*"
+wcwidth = "*"
+pygments = "*"
+pyyaml = "*"
+platformdirs = "*"
+idna = "*"
+markdown-it-py = "*"
+mdurl = "*"
+pathspec = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
