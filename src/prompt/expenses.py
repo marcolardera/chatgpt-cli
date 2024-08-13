@@ -8,6 +8,14 @@ def display_expense(
     user: str,
     budget_manager: BudgetManager,
 ) -> None:
+    """
+    Displays the current cost, total budget, and remaining budget for the user.
+
+    Args:
+        config: The configuration dictionary.
+        user: The user's name.
+        budget_manager: The budget manager.
+    """
     # Get the current cost and total budget for the user
     current_cost = budget_manager.get_current_cost(user)
     total_budget = budget_manager.get_total_budget(user)
@@ -34,7 +42,16 @@ def calculate_expense(
     completion_pricing: float,
 ) -> float:
     """
-    Calculate the expense, given the number of tokens and the pricing rates
+    Calculates the expense based on the number of tokens and pricing rates.
+
+    Args:
+        prompt_tokens: The number of tokens in the prompt.
+        completion_tokens: The number of tokens in the completion.
+        prompt_pricing: The pricing rate per 1000 tokens for the prompt.
+        completion_pricing: The pricing rate per 1000 tokens for the completion.
+
+    Returns:
+        The calculated expense.
     """
     expense = ((prompt_tokens / 1000) * prompt_pricing) + (
         (completion_tokens / 1000) * completion_pricing
