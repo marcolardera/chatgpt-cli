@@ -6,6 +6,15 @@ from config.config import SAVE_FOLDER, budget_manager
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
+    """
+    Loads history data from a file.
+
+    Args:
+        history_file: The path to the history file.
+
+    Returns:
+        A dictionary containing the history data.
+    """
     if not os.path.dirname(history_file):
         history_file = os.path.join(os.getcwd(), history_file)
 
@@ -70,6 +79,20 @@ def save_history(
     save_file: str,
     storage_format: str = "markdown",
 ) -> str:
+    """
+    Saves the history data to a file.
+
+    Args:
+        config: The configuration dictionary.
+        model: The model used for the conversation.
+        messages: The list of messages in the conversation.
+        save_file: The name of the file to save the history to.
+        storage_format: The format to save the history in (json or markdown).
+
+    Returns:
+        The name of the saved file.
+    """
+
     filepath = os.path.join(SAVE_FOLDER, save_file)
 
     # Ensure the directory exists
@@ -118,6 +141,17 @@ def save_history(
 def calculate_tokens_and_cost(
     messages: List[Dict[str, str]], model: str, user: str
 ) -> Tuple[int, int, float]:
+    """
+    Calculates the number of tokens and cost for a conversation.
+
+    Args:
+        messages: The list of messages in the conversation.
+        model: The model used for the conversation.
+        user: The user who initiated the conversation.
+
+    Returns:
+        A tuple containing the number of prompt tokens, completion tokens, and total cost.
+    """
     prompt_tokens = sum(
         len(m["content"].split()) for m in messages if m["role"] == "user"
     )
