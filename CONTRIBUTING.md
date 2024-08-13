@@ -1,13 +1,16 @@
-## How to contribute to ChatGPT CLI
+# How to contribute to ChatGPT CLI
 
 External contributes to this project are welcome! :heart: :heart:
 
-### Philosophy
+## Philosophy
 
-The philosophy behind this tool is to keep things simple, while at the same time to provide all the features that really matters for users who need to interact with ChatGPT models from the command line in a quick and efficient way.
-Regarding the code, the original idea was to have a single, well structured, Python script. Since then, many new features and improvements had been added and it may be necessary at some point to refactor it in a mode modular way...
+The philosophy behind this tool is to maintain simplicity while providing essential features for users who need to interact with ChatGPT models from the command line efficiently. As explained in the README.md, we have undergone a significant refactor to improve modularity and maintainability.
 
-### Development
+Our current approach emphasizes organizing code into logical directories, with each script ideally not exceeding 200-300 lines. This structure allows for better code organization, easier maintenance, and improved readability. Contributors are encouraged to follow this modular approach when adding new features or making improvements.
+
+We wanna to balance simplicity with functionality, ensuring that the tool remains user-friendly while accommodating the growing feature set. When contributing, please consider how your changes fit into this modular structure and maintain the tool's core philosophy of simplicity and efficiency.
+
+## Development
 
 Check out the repository:
 
@@ -36,4 +39,4 @@ After the changes are done don't forget to:
 
 ### Formatting
 
-This project uses Black (https://github.com/psf/black) as a code formatter (Most IDE have an extension that makes straightforward to use it). Please format the code using this tool before submitting a PR.
+This project uses [Ruff](https://github.com/astral-sh/ruff) as a code formatter (Most IDE have an extension that makes straightforward to use it). Please format the code using this tool before submitting a PR.
