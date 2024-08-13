@@ -1,13 +1,13 @@
 from rich.console import Console
 from rich.theme import Theme
 
-"""Define custom styles."""
+"""Define custom styles using Catppuccin colors."""
 custom_theme = Theme(
     {
-        "info": "bold cyan",
-        "error": "bold red",
-        "warning": "bold yellow",
-        "success": "bold green",
+        "info": "bold #89dceb",  # Catppuccin Sky
+        "error": "bold #f38ba8",  # Catppuccin Red
+        "warning": "bold #f9e2af",  # Catppuccin Yellow
+        "success": "bold #a6e3a1",  # Catppuccin Green
     }
 )
 
