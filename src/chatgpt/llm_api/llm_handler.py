@@ -4,6 +4,7 @@ from prompt_toolkit import PromptSession
 from chatgpt.config.config import get_api_key, budget_manager
 from litellm.budget_manager import BudgetManager
 import litellm
+from rich.panel import Panel
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
@@ -57,16 +58,13 @@ def chat_with_context(
 
         if show_spinner:
             with console.status(
-                "[bold green]Waiting for response...", spinner="dots"
+                "[bold #a6e3a1]Waiting for response...",
+                spinner="dots",  # Catppuccin Green
             ) as status:
-                # start_time = time.time()
                 response = litellm.completion(**completion_kwargs)
-                # elapsed_time = time.time() - start_time
-                status.update(status="[bold green]Response received!")
-
-            # console.print(
-            #     Panel(f"Response time: {elapsed_time:.2f} seconds", expand=False)
-            # )
+                status.update(
+                    status="[bold #a6e3a1]Response received!"
+                )  # Catppuccin Green
 
             response_content, response_obj = handle_response(
                 response, budget_manager, config, user
@@ -87,7 +85,9 @@ def chat_with_context(
     except KeyboardInterrupt:
         return None
     except Exception as e:
-        console.print(f"An error occurred: {str(e)}", style="error")
+        console.print(
+            Panel(f"An error occurred: {str(e)}", style="#f38ba8")
+        )  # Catppuccin Red
         return None
     return response_content, response_obj
 
@@ -110,10 +110,9 @@ def handle_response(
     try:
         budget_manager.update_cost(user=user, completion_obj=response)
     except Exception as budget_error:
-        console.print(f"Budget update error: {str(budget_error)}", style="error")
-
-    # Display updated expense information
-    # display_expense(config, user, budget_manager)
+        console.print(
+            Panel(f"Budget update error: {str(budget_error)}", style="#f38ba8")
+        )  # Catppuccin Red
 
     if hasattr(response, "choices") and len(response.choices) > 0:
         response_content = response.choices[0].message.content
@@ -139,5 +138,7 @@ def handle_response(
         }
         return response_content, response_obj
     else:
-        console.print(f"Unexpected response format: {response!r}", style="error")
+        console.print(
+            Panel(f"Unexpected response format: {response!r}", style="#f38ba8")
+        )  # Catppuccin Red
         return None, None
