@@ -12,7 +12,7 @@ from rich.markdown import Markdown
 from rich.syntax import Syntax
 from prompt_toolkit.formatted_text import HTML
 from chatgpt.config.config import budget_manager
-from rich.bar import Bar
+from catppuccin.extras.pygments import MochaStyle
 from rich.highlighter import Highlighter
 from rich.panel import Panel
 from prompt_toolkit.filters import Condition
@@ -86,10 +86,8 @@ def start_prompt(
             provider = config.get("provider", "Unknown")
             model = config.get("model", "Unknown")
 
-            # Create a spacer bar
-            spacer_bar = Bar(
-                size=1, begin=0, end=1, color="#a6e3a1", bgcolor="default"
-            )  # Catppuccin Green
+            # Create a spacer with Catppuccin Green dashes
+            spacer = Text("─" * 35, style="#a6e3a1")  # Catppuccin Green
 
             # Print the header information
             console.print(Text("ChatGPT CLI", style="#89dceb"))  # Catppuccin Sky
@@ -97,7 +95,7 @@ def start_prompt(
                 Text(f"Provider: {provider}", style="#f9e2af")
             )  # Catppuccin Yellow
             console.print(Text(f"Model: {model}", style="#f9e2af"))  # Catppuccin Yellow
-            console.print(spacer_bar)
+            console.print(spacer)
 
             # Prepare the prompt text with tokens and cost
             prompt_text = (
@@ -198,9 +196,15 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
     current_block = []
     current_language = ""
     block_index = 1
+    text_buffer = []
 
     for line in lines:
         if line.strip().startswith("```") and not code_block_open:
+            # Print any accumulated text before the code block
+            if text_buffer:
+                console.print(Markdown("\n".join(text_buffer), justify="left"))
+                text_buffer = []
+
             code_block_open = True
             parts = line.strip().split("```", 1)
             current_language = parts[1].strip() if len(parts) > 1 else ""
@@ -210,7 +214,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             syntax = Syntax(
                 block_content,
                 current_language or "text",
-                theme="monokai",
+                theme=MochaStyle,
                 line_numbers=True,
             )
             panel = Panel(
@@ -236,7 +240,12 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         elif code_block_open:
             current_block.append(line)
         else:
-            console.print(Markdown(line))
+            # Accumulate text lines
+            text_buffer.append(line)
+
+    # Print any remaining text
+    if text_buffer:
+        console.print(Markdown("\n".join(text_buffer), justify="left"))
 
     # Handle any remaining open code block
     if code_block_open and current_block:
@@ -244,7 +253,7 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         syntax = Syntax(
             block_content,
             current_language or "text",
-            theme="monokai",
+            theme=MochaStyle,
             line_numbers=True,
         )
         panel = Panel(
@@ -344,20 +353,20 @@ def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     return code_blocks
 
 
-def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
-    """Prints a summary of the extracted code blocks.
+# def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
+#     """Prints a summary of the extracted code blocks.
 
-    Args:
-        code_blocks: A dictionary of code blocks extracted from the LLM response.
-    """
-    if code_blocks:
-        console.print("\nCode blocks:", style="bold")
-        for block_id, block_info in code_blocks.items():
-            title = f" - {block_info['title']}" if block_info["title"] else ""
-            console.print(
-                f"  [{block_id}] {block_info['language']}{title} "
-                f"({len(block_info['content'].split('\n'))} lines)"
-            )
+#     Args:
+#         code_blocks: A dictionary of code blocks extracted from the LLM response.
+#     """
+#     if code_blocks:
+#         console.print("\nCode blocks:", style="bold")
+#         for block_id, block_info in code_blocks.items():
+#             title = f" - {block_info['title']}" if block_info["title"] else ""
+#             console.print(
+#                 f"  [{block_id}] {block_info['language']}{title} "
+#                 f"({len(block_info['content'].split('\n'))} lines)"
+#             )
 
 
 def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
