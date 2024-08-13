@@ -80,6 +80,10 @@ def chat_with_context(
         if response_content is None:
             return None
 
+        # Update cost and save data
+        budget_manager.update_cost(user=user, completion_obj=response)
+        budget_manager.save_data()
+
     except KeyboardInterrupt:
         return None
     except Exception as e:
