@@ -102,10 +102,10 @@ class PathCompleter(Completer):
 )
 @click.option(
     "-s",
-    "--supplier",
+    "--provider",
     type=click.Choice(["openai", "azure", "anthropic", "gemini"]),
     default=None,
-    help="Set the model supplier",
+    help="Set the model provider",
 )
 @click.option(
     "--show-spinner/--no-spinner",
@@ -130,7 +130,7 @@ def main(
     api_key: Optional[str],
     non_interactive: bool,
     multiline: Optional[bool],
-    supplier: Optional[str],
+    provider: Optional[str],
     show_spinner: bool,
     storage_format: Optional[str],
     restore_session: Optional[str],
@@ -142,8 +142,8 @@ def main(
     config = load_config(config_file or CONFIG_FILE)
 
     # Override config with command line options if provided
-    if supplier is not None:
-        config["provider"] = supplier
+    if provider is not None:
+        config["provider"] = provider
 
     if api_key:
         config[f"{config['provider']}_api_key"] = api_key
