@@ -71,12 +71,13 @@ def start_prompt(
             limiter = "─" * 150  # Adjust the number based on your preferred width
 
             prompt_text = (
-                f"<style fg='cyan'>ChatGPT CLI</style>\n"
-                f"<style fg='yellow'>Provider: {provider}</style>\n"
-                f"<style fg='yellow'>Model: {model}</style>\n"
-                f"<style fg='green'>{limiter}</style>\n"
-                f"<style fg='blue'>[Tokens: {prompt_tokens + completion_tokens}]</style> "
-                f"<style fg='red'>[Cost: ${current_cost:.6f}]</style> >>> "
+                f"<style fg='#89dceb'>ChatGPT CLI</style>\n"  # Catppuccin Sky
+                f"<style fg='#f9e2af'>Provider: {provider}</style>\n"  # Catppuccin Yellow
+                f"<style fg='#f9e2af'>Model: {model}</style>\n"  # Catppuccin Yellow
+                f"<style fg='#a6e3a1'>{limiter}</style>\n"  # Catppuccin Green
+                f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
+                f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>\n"
+                ">>> "
             )
 
             message = session.prompt(
@@ -120,27 +121,37 @@ def handle_copy_command(
                     try:
                         pyperclip.copy(code_blocks[block_id]["content"])
                         console.print(
-                            f"Copied block {block_id} to clipboard", style="success"
+                            f"Copied block {block_id} to clipboard",
+                            style="#a6e3a1",  # Catppuccin Green
                         )
                     except pyperclip.PyperclipException:
                         console.print(
                             "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
-                            style="error",
+                            style="#f38ba8",  # Catppuccin Red
                         )
                 else:
                     console.print(
-                        f"No code block with ID {block_id} available", style="error"
+                        f"No code block with ID {block_id} available",
+                        style="#f38ba8",  # Catppuccin Red
                     )
             elif code_blocks:
                 last_block_id = max(code_blocks.keys())
                 pyperclip.copy(code_blocks[last_block_id]["content"])
-                console.print("Copied last code block to clipboard", style="success")
+                console.print(
+                    "Copied last code block to clipboard", style="#a6e3a1"
+                )  # Catppuccin Green
             else:
-                console.print("No code blocks available to copy", style="error")
+                console.print(
+                    "No code blocks available to copy", style="#f38ba8"
+                )  # Catppuccin Red
         else:
-            console.print("Invalid copy command format", style="error")
+            console.print(
+                "Invalid copy command format", style="#f38ba8"
+            )  # Catppuccin Red
     else:
-        console.print("Easy copy is disabled in the configuration", style="error")
+        console.print(
+            "Easy copy is disabled in the configuration", style="#f38ba8"
+        )  # Catppuccin Red
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
@@ -182,7 +193,13 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
                 line_numbers=True,
             )
             console.print(
-                Panel(syntax, title=f"Code Block {code_block_id}", expand=False)
+                Panel(
+                    syntax,
+                    title=f"Code Block {code_block_id}",
+                    expand=False,
+                    border_style="#89dceb",  # Catppuccin Sky
+                    title_align="left",
+                )
             )
 
             code_block_id += 1
@@ -234,7 +251,7 @@ def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[s
         last_response = messages[-1]["content"]
         open_editor_with_content(last_response)
     else:
-        console.print("No previous response to edit", style="error")
+        console.print("No previous response to edit", style="#f38ba8")  # Catppuccin Red
 
 
 def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
