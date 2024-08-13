@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "xdg-base-dirs~=6.0.0"]
+requires = ["setuptools>=42", "wheel", "xdg-base-dirs~=6.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ version = "0.3.0"
 authors = [
     { name = "Marco Lardera", email = "larderamarco@hotmail.com" }
 ]
-description = "Simple yet effective command line client for chatting with ChatGPT using the official API." 
+description = "Simple yet effective command line client for chatting with ChatGPT using the official API."
 readme = "README.md"
 requires-python = ">=3.10"
-dynamic = ["scripts", "dependencies"]
+dynamic = ["classifiers", "scripts", "dependencies", "urls"]
