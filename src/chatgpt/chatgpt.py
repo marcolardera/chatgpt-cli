@@ -31,7 +31,9 @@ from chatgpt.llm_api.llm_handler import chat_with_context
 from chatgpt.prompt.custom_console import create_custom_console
 from chatgpt.prompt.history import load_history_data, save_history
 from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
+import importlib_metadata
 
+__version__ = importlib_metadata.version("chatgpt-cli")
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -88,6 +90,7 @@ class PathCompleter(Completer):
 
 
 @click.command()
+@click.version_option(version=__version__)
 @click.option(
     "--config", "config_file", type=click.Path(exists=True), help="Path to config file"
 )
@@ -121,6 +124,11 @@ class PathCompleter(Completer):
     "--restore-session",
     help="Restore a previous chat session (input format: filename or 'last')",
 )
+@click.option(
+    "--version",
+    is_flag=True,
+    help="Show the version of the CLI",
+)
 def main(
     config_file: Optional[str],
     model: Optional[str],
@@ -134,6 +142,7 @@ def main(
     show_spinner: bool,
     storage_format: Optional[str],
     restore_session: Optional[str],
+    version: bool,
 ):
     """Main function for the ChatGPT CLI."""
     global SAVE_FILE, messages

@@ -26,6 +26,10 @@ mdurl = "*"
 pathspec = "*"
 
 [dev-packages]
+chatgpt-cli = "*"
+
+[scripts]
+dev = "bash -c 'pip install -e . && chatgpt-cli'"
 
 [requires]
 python_version = "3.12"

@@ -13,6 +13,7 @@ from rich.markdown import Markdown
 from rich.syntax import Syntax
 from chatgpt.config.config import budget_manager
 from rich.panel import Panel
+from rich.table import Table
 
 console = create_custom_console()
 
@@ -155,65 +156,85 @@ def handle_copy_command(
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
-    """Prints Markdown content with code blocks highlighted.
+    """Prints the given content as markdown with integrated code blocks.
 
     Args:
-        content: The Markdown content to print.
+        content: The content to print as markdown.
         code_blocks: A dictionary of code blocks extracted from the LLM response.
     """
     if code_blocks is None:
         code_blocks = {}
 
     lines = content.split("\n")
-    code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
-    code_block_content = []
-    code_block_language = ""
-    regular_content = []
+    current_block = []
+    current_language = ""
+    block_index = 1
 
     for line in lines:
-        if line.startswith("```") and not code_block_open:
+        if line.strip().startswith("```") and not code_block_open:
             code_block_open = True
-            code_block_language = line.replace("```", "").strip()
-            if regular_content:
-                console.print(Markdown("\n".join(regular_content)))
-                regular_content = []
-        elif line.startswith("```") and code_block_open:
+            parts = line.strip().split("```", 1)
+            current_language = parts[1].strip() if len(parts) > 1 else ""
+        elif line.strip() == "```" and code_block_open:
             code_block_open = False
-            snippet_text = "\n".join(code_block_content)
-            code_blocks[str(code_block_id)] = {
-                "content": snippet_text,
-                "language": code_block_language,
-            }
-
+            block_content = "\n".join(current_block)
             syntax = Syntax(
-                snippet_text,
-                code_block_language,
+                block_content,
+                current_language or "text",
                 theme="monokai",
                 line_numbers=True,
             )
-            console.print(
-                Panel(
-                    syntax,
-                    title=f"Code Block {code_block_id}",
-                    expand=False,
-                    border_style="#89dceb",  # Catppuccin Sky
-                    title_align="left",
-                )
+            panel = Panel(
+                syntax,
+                expand=False,
+                border_style="#89dceb",  # Catppuccin Sky
+                title=f"Code Block {block_index} - {current_language}"
+                if current_language
+                else f"Code Block {block_index}",
+                title_align="left",
             )
+            console.print(panel)
 
-            code_block_id += 1
-            code_block_content = []
-            code_block_language = ""
+            # Add the code block to the dictionary
+            code_blocks[str(block_index)] = {
+                "content": block_content,
+                "language": current_language,
+            }
+
+            block_index += 1
+            current_block = []
+            current_language = ""
         elif code_block_open:
-            code_block_content.append(line)
+            current_block.append(line)
         else:
-            regular_content.append(line)
+            console.print(Markdown(line))
 
-    if code_block_open:
-        console.print(Markdown("\n".join(code_block_content)))
-    elif regular_content:
-        console.print(Markdown("\n".join(regular_content)))
+    # Handle any remaining open code block
+    if code_block_open and current_block:
+        block_content = "\n".join(current_block)
+        syntax = Syntax(
+            block_content,
+            current_language or "text",
+            theme="monokai",
+            line_numbers=True,
+        )
+        panel = Panel(
+            syntax,
+            expand=False,
+            border_style="#89dceb",  # Catppuccin Sky
+            title=f"Code Block {block_index} - {current_language}"
+            if current_language
+            else f"Code Block {block_index}",
+            title_align="left",
+        )
+        console.print(panel)
+
+        # Add the last code block to the dictionary
+        code_blocks[str(block_index)] = {
+            "content": block_content,
+            "language": current_language,
+        }
 
     return code_blocks
 
@@ -264,25 +285,35 @@ def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     lines = content.split("\n")
     code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
-    code_block_content: List[str] = []
-    language = ""
+    code_block_content = []
+    code_block_language = ""
 
     for line in lines:
-        if line.startswith("```") and not code_block_open:
+        if line.strip().startswith("```") and not code_block_open:
             code_block_open = True
-            language = line[3:].strip()
-        elif line.startswith("```") and code_block_open:
+            parts = line.strip().split("```", 1)
+            code_block_language = parts[1].strip() if len(parts) > 1 else ""
+        elif line.strip() == "```" and code_block_open:
             code_block_open = False
             snippet_text = "\n".join(code_block_content)
             code_blocks[str(code_block_id)] = {
                 "content": snippet_text,
-                "language": language,
+                "language": code_block_language,
             }
             code_block_id += 1
             code_block_content = []
-            language = ""
+            code_block_language = ""
         elif code_block_open:
             code_block_content.append(line)
+
+    if code_block_open:
+        snippet_text = "\n".join(code_block_content)
+        code_blocks[str(code_block_id)] = {
+            "content": snippet_text,
+            "language": code_block_language,
+        }
+
+    return code_blocks
 
 
 def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
@@ -294,8 +325,10 @@ def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
     if code_blocks:
         console.print("\nCode blocks:", style="bold")
         for block_id, block_info in code_blocks.items():
+            title = f" - {block_info['title']}" if block_info["title"] else ""
             console.print(
-                f"  [{block_id}] {block_info['language']} ({len(block_info['content'].split('\n'))} lines)"
+                f"  [{block_id}] {block_info['language']}{title} "
+                f"({len(block_info['content'].split('\n'))} lines)"
             )
 
 
