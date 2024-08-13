@@ -20,20 +20,28 @@ DEFAULT_CONFIG = {
     "json_mode": False,
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
-    "storage_format": "markdown",  # Options: "markdown", "json"
+    "storage_format": "markdown",
     "embedding_model": "text-embedding-ada-002",
     "embedding_dimension": 1536,
     "max_context_tokens": 3500,
     "show_spinner": True,
     "max_tokens": 1024,
     "budget_enabled": True,
-    "budget_amount": 10.0,  # Default budget amount in USD
-    "budget_duration": "monthly",  # Options: "daily", "weekly", "monthly", "yearly"
-    "budget_user": "default_user",  # Default user for budget tracking
+    "budget_amount": 10.0,
+    "budget_duration": "monthly",
+    "budget_user": "default_user",
 }
 
 
 def load_config(config_file: str) -> Dict[str, Any]:
+    """Loads the configuration from the config file.
+
+    Args:
+        config_file (str): The path to the config file.
+
+    Returns:
+        Dict[str, Any]: The configuration dictionary.
+    """
     if not os.path.exists(config_file):
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
         with open(config_file, "w") as f:
@@ -65,10 +73,16 @@ def load_config(config_file: str) -> Dict[str, Any]:
 
 
 def create_save_folder():
+    """Creates the save folder if it doesn't exist."""
     os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 
 def get_session_filename() -> str:
+    """Generates a unique filename for the current session.
+
+    Returns:
+        str: The filename for the current session.
+    """
     from datetime import datetime
 
     now = datetime.now()
@@ -82,10 +96,15 @@ def get_session_filename() -> str:
     else:
         session_index = 1
 
-    return f"{date_str}_{session_index}.md"  # Always save as markdown
+    return f"{date_str}_{session_index}.md"
 
 
 def get_last_save_file() -> str | None:
+    """Gets the filename of the last saved session.
+
+    Returns:
+        str | None: The filename of the last saved session, or None if no session has been saved.
+    """
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".md")]
     if files:
         return max(files, key=lambda x: os.path.getctime(os.path.join(SAVE_FOLDER, x)))
@@ -93,6 +112,14 @@ def get_last_save_file() -> str | None:
 
 
 def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
+    """Initializes the budget manager with the specified configuration.
+
+    Args:
+        config (Dict[str, Any]): The configuration dictionary.
+
+    Returns:
+        BudgetManager: The initialized budget manager.
+    """
     budget_manager = BudgetManager(project_name="chatgpt-cli")
     budget_manager.create_budget(
         total_budget=config["budget_amount"],
@@ -103,15 +130,32 @@ def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
 
 
 def check_budget(config: Dict[str, Any], budget_manager: BudgetManager) -> bool:
+    """Checks if the current cost is within the budget limit.
+
+    Args:
+        config (Dict[str, Any]): The configuration dictionary.
+        budget_manager (BudgetManager): The budget manager.
+
+    Returns:
+        bool: True if the current cost is within the budget limit, False otherwise.
+    """
     if config["budget_enabled"]:
         user = config["budget_user"]
         current_cost = budget_manager.get_current_cost(user)
         total_budget = budget_manager.get_total_budget(user)
         return current_cost <= total_budget
-    return True  # If budget is not enabled, always return True
+    return True
 
 
 def get_proxy(config: Dict[str, Any]):
+    """Gets the proxy configuration from the config.
+
+    Args:
+        config (Dict[str, Any]): The configuration dictionary.
+
+    Returns:
+        Dict[str, str] | None: The proxy configuration, or None if no proxy is configured.
+    """
     return (
         {"http": config["proxy"], "https": config["proxy"]}
         if config["use_proxy"]
@@ -120,6 +164,14 @@ def get_proxy(config: Dict[str, Any]):
 
 
 def get_api_key(config: Dict[str, Any]) -> str:
+    """Gets the API key for the specified provider.
+
+    Args:
+        config (Dict[str, Any]): The configuration dictionary.
+
+    Returns:
+        str: The API key for the specified provider.
+    """
     provider = config["provider"]
     key_name = f"{provider}_api_key"
     api_key = config.get(key_name)
