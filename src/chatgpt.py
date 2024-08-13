@@ -1,8 +1,13 @@
 import os
+from typing import List, Dict, Union, Optional
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 import rich_click as click
+from rich.console import Console
+from rich.text import Text
 from rich.traceback import install
+
 from config.config import (
     load_config,
     get_session_filename,
@@ -15,16 +20,14 @@ from config.config import (
 )
 from config.model_handler import validate_model, get_valid_models
 from config.config import get_api_key
-from prompt.history import load_history_data
-from typing import List, Dict, Union, Optional
-from llm_api.llm_handler import chat_with_context
-from logs.loguru_init import logger
 from litellm import check_valid_key
-from prompt.prompt import start_prompt, get_usage_stats, save_history, print_markdown
+from logs.loguru_init import logger
 from prompt.custom_console import create_custom_console
+from prompt.history import load_history_data, save_history
+from prompt.prompt import start_prompt, get_usage_stats, print_markdown
+from llm_api.llm_handler import chat_with_context
+
 import logging
-from rich.console import Console
-from rich.text import Text
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -45,10 +48,14 @@ logging.basicConfig(level=logging.WARNING)
 
 
 class ModelCompleter(Completer):
-    def __init__(self, models):
+    """Completer for available models."""
+
+    def __init__(self, models: List[str]):
+        """Initialize the ModelCompleter with a list of models."""
         self.models = models
 
     def get_completions(self, document, complete_event):
+        """Get completions for the given document."""
         word = document.get_word_before_cursor()
         for model in self.models:
             if model.startswith(word):
@@ -56,7 +63,10 @@ class ModelCompleter(Completer):
 
 
 class PathCompleter(Completer):
+    """Completer for file paths."""
+
     def get_completions(self, document, complete_event):
+        """Get completions for the given document."""
         text = document.text_before_cursor
         if text.startswith("/"):
             path = text[1:]
@@ -110,19 +120,20 @@ class PathCompleter(Completer):
     help="Restore a previous chat session (input format: filename or 'last')",
 )
 def main(
-    config_file,
-    model,
-    temperature,
-    max_tokens,
-    save_file,
-    api_key,
-    non_interactive,
-    multiline,
-    supplier,
-    show_spinner,
-    storage_format,
-    restore_session,
+    config_file: Optional[str],
+    model: Optional[str],
+    temperature: Optional[float],
+    max_tokens: Optional[int],
+    save_file: Optional[str],
+    api_key: Optional[str],
+    non_interactive: bool,
+    multiline: Optional[bool],
+    supplier: Optional[str],
+    show_spinner: bool,
+    storage_format: Optional[str],
+    restore_session: Optional[str],
 ):
+    """Main function for the ChatGPT CLI."""
     global SAVE_FILE, messages
 
     # Load configuration
