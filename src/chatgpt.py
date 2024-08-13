@@ -205,6 +205,8 @@ def main(
                     os.path.join(SAVE_FOLDER, restore_file)
                 )
                 messages = history_data["messages"]
+                prompt_tokens = history_data.get("prompt_tokens", 0)
+                completion_tokens = history_data.get("completion_tokens", 0)
                 SAVE_FILE = restore_file  # Keep the restored session alive
                 logger.info(
                     f"Restored session: [bold green]{restore_file}",
@@ -215,8 +217,13 @@ def main(
                     f"[red bold]File {restore_file} not found",
                     extra={"highlighter": None},
                 )
+                messages = []
+                prompt_tokens = 0
+                completion_tokens = 0
     else:
         messages = []
+        prompt_tokens = 0
+        completion_tokens = 0
 
     # Get proxy and base_endpoint
     proxy = get_proxy(config)
@@ -236,6 +243,8 @@ def main(
                 session,
                 config,
                 messages,
+                prompt_tokens,
+                completion_tokens,
                 code_blocks,
             )
 
@@ -265,6 +274,16 @@ def main(
                             }
                         )
                         code_blocks = print_markdown(response_content, code_blocks)
+
+                        # Update token counts
+                        prompt_tokens += response_obj["usage"]["prompt_tokens"]
+                        completion_tokens += response_obj["usage"]["completion_tokens"]
+
+                        # Update cost in BudgetManager
+                        budget_manager.update_cost(
+                            user=config["budget_user"],
+                            completion_obj=response_obj,
+                        )
 
                         # Update save_info instead of printing
                         save_info = save_history(
