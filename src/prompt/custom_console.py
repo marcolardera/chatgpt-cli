@@ -1,7 +1,7 @@
 from rich.console import Console
 from rich.theme import Theme
 
-# Define custom styles
+"""Define custom styles."""
 custom_theme = Theme(
     {
         "info": "bold cyan",
@@ -13,7 +13,5 @@ custom_theme = Theme(
 
 
 def create_custom_console() -> Console:
-    """
-    Create and return a console with custom styles.
-    """
+    """Create and return a console with custom styles."""
     return Console(theme=custom_theme)
