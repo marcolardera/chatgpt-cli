@@ -32,14 +32,33 @@ logger.add(
 
 # Capture standard stdout, stderr, and warnings
 class StreamToLogger:
-    def __init__(self, level="INFO"):
+    """
+    A class to redirect standard output and error to the logger.
+    """
+
+    def __init__(self, level: str = "INFO") -> None:
+        """
+        Initializes the StreamToLogger object.
+
+        Args:
+            level: The logging level to use.
+        """
         self._level = level
 
-    def write(self, buffer):
+    def write(self, buffer: str) -> None:
+        """
+        Writes the buffer to the logger.
+
+        Args:
+            buffer: The buffer to write.
+        """
         for line in buffer.rstrip().splitlines():
             logger.opt(depth=1).log(self._level, line.rstrip())
 
-    def flush(self):
+    def flush(self) -> None:
+        """
+        Flushes the buffer.
+        """
         pass
 
 
@@ -52,7 +71,15 @@ with contextlib.redirect_stdout(stream):
 showwarning_ = warnings.showwarning
 
 
-def showwarning(message, *args, **kwargs):
+def showwarning(message: str, *args, **kwargs) -> None:
+    """
+    Logs warnings to the logger.
+
+    Args:
+        message: The warning message.
+        *args: Additional arguments.
+        **kwargs: Additional keyword arguments.
+    """
     logger.warning(message)
     showwarning_(message, *args, **kwargs)
 
