@@ -34,6 +34,9 @@ def display_expense(
         for model, cost in model_costs.items():
             console.print(f"  {model}: ${cost:.6f}")
 
+    # Save the updated data
+    budget_manager.save_data()
+
 
 def calculate_expense(
     prompt_tokens: int,
