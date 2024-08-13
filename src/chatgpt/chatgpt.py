@@ -9,7 +9,7 @@ import rich_click as click
 from rich.console import Console
 from rich.text import Text
 from rich.traceback import install
-from llm_api.llm_handler import chat_with_context
+from litellm import check_valid_key
 
 # internal imports
 from chatgpt.config.config import (
@@ -24,8 +24,8 @@ from chatgpt.config.config import (
 )
 from chatgpt.config.model_handler import validate_model, get_valid_models
 from chatgpt.config.config import get_api_key
-from litellm import check_valid_key
 from chatgpt.logs.loguru_init import logger
+from chatgpt.llm_api.llm_handler import chat_with_context
 from chatgpt.prompt.custom_console import create_custom_console
 from chatgpt.prompt.history import load_history_data, save_history
 from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
