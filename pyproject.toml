@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "chatgpt-cli"
 version = "0.3.1"
 authors = [
-    { name = "Marco Lardera", email = "larderamarco@hotmail.com" }
+    { name = "Marco Lardera", email = "larderamarco@hotmail.com" },
+    { name = "Tadeas Fort", email = "business@tadeasfort.com" }
 ]
 description = "Simple yet effective command line client for chatting with ChatGPT using the official API."
 readme = "README.md"
