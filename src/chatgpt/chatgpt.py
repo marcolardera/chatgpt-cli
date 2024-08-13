@@ -3,13 +3,20 @@ import os
 from typing import List, Dict, Union, Optional
 
 # external imports
+import typer
+from typing_extensions import Annotated
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
-import rich_click as click
 from rich.console import Console
 from rich.text import Text
 from rich.traceback import install
 from litellm import check_valid_key
+
+from chatgpt.prompt.prompt import UserAIHighlighter
+from rich.table import Table
+from rich.panel import Panel
+import click
+import importlib_metadata
 
 # internal imports
 from chatgpt.config.config import (
@@ -22,7 +29,11 @@ from chatgpt.config.config import (
     check_budget,
     initialize_budget_manager,
 )
-from chatgpt.config.model_handler import validate_model, get_valid_models
+from chatgpt.config.model_handler import (
+    get_valid_models_and_providers,
+    validate_model,
+    validate_provider,
+)
 from chatgpt.config.config import get_api_key
 from chatgpt.logs.loguru_init import logger
 from chatgpt.llm_api.llm_handler import chat_with_context
@@ -30,6 +41,7 @@ from chatgpt.prompt.custom_console import create_custom_console
 from chatgpt.prompt.history import load_history_data, save_history
 from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
 
+__version__ = importlib_metadata.version("chatgpt-cli")
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -41,10 +53,7 @@ rich_console = Console()
 SAVE_FILE: Optional[str] = None
 messages: List[Dict[str, Union[str, int]]] = []
 
-# Configure rich_click
-click.rich_click.USE_MARKDOWN = True
-click.rich_click.MAX_WIDTH = 100
-click.rich_click.SHOW_ARGUMENTS = True
+app = typer.Typer(add_completion=False)
 
 
 class ModelCompleter(Completer):
@@ -85,63 +94,68 @@ class PathCompleter(Completer):
                 pass  # Handle permission errors or non-existent directories
 
 
-@click.command()
-@click.option(
-    "--config", "config_file", type=click.Path(exists=True), help="Path to config file"
-)
-@click.option("-m", "--model", help="Set the model")
-@click.option("-t", "--temperature", type=float, help="Set the temperature")
-@click.option("--max-tokens", type=int, help="Set max tokens")
-@click.option("--save-file", type=click.Path(), help="Set custom save file")
-@click.option("--api-key", help="Set the API key")
-@click.option("--non-interactive", is_flag=True, help="Run in non-interactive mode")
-@click.option(
-    "--multiline/--no-multiline", default=None, help="Enable/disable multiline input"
-)
-@click.option(
-    "-s",
-    "--supplier",
-    type=click.Choice(["openai", "azure", "anthropic", "gemini"]),
-    default=None,
-    help="Set the model supplier",
-)
-@click.option(
-    "--show-spinner/--no-spinner",
-    default=True,
-    help="Show/hide spinner while waiting for response",
-)
-@click.option(
-    "--storage-format",
-    type=click.Choice(["markdown", "json"]),
-    help="Set the storage format for session history",
-)
-@click.option(
-    "--restore-session",
-    help="Restore a previous chat session (input format: filename or 'last')",
-)
+@app.command(name="")
 def main(
-    config_file: Optional[str],
-    model: Optional[str],
-    temperature: Optional[float],
-    max_tokens: Optional[int],
-    save_file: Optional[str],
-    api_key: Optional[str],
-    non_interactive: bool,
-    multiline: Optional[bool],
-    supplier: Optional[str],
-    show_spinner: bool,
-    storage_format: Optional[str],
-    restore_session: Optional[str],
+    config_file: Annotated[
+        Optional[str], typer.Option(help="Path to config file")
+    ] = None,
+    model: Annotated[Optional[str], typer.Option("-m", help="Set the model")] = None,
+    temperature: Annotated[
+        Optional[float], typer.Option("-t", help="Set the temperature")
+    ] = None,
+    max_tokens: Annotated[Optional[int], typer.Option(help="Set max tokens")] = None,
+    save_file: Annotated[
+        Optional[str], typer.Option(help="Set custom save file")
+    ] = None,
+    api_key: Annotated[Optional[str], typer.Option(help="Set the API key")] = None,
+    non_interactive: Annotated[
+        bool, typer.Option(help="Run in non-interactive mode")
+    ] = False,
+    multiline: Annotated[
+        Optional[bool], typer.Option(help="Enable/disable multiline input")
+    ] = None,
+    provider: Annotated[
+        Optional[str], typer.Option("-s", help="Set the model provider")
+    ] = None,
+    show_spinner: Annotated[
+        bool, typer.Option(help="Show/hide spinner while waiting for response")
+    ] = True,
+    storage_format: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Set the storage format for session history",
+            click_type=click.Choice(["markdown", "json"]),
+        ),
+    ] = None,
+    restore_session: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Restore a previous chat session (input format: filename or 'last')"
+        ),
+    ] = None,
+    version: Annotated[
+        bool, typer.Option("--version", help="Show the version of the CLI")
+    ] = False,
 ):
-    """Main function for the ChatGPT CLI."""
+    """ChatGPT CLI - An interactive command-line interface for ChatGPT"""
     global SAVE_FILE, messages
+
+    if version:
+        typer.echo(f"ChatGPT CLI version: {importlib_metadata.version('chatgpt-cli')}")
+        raise typer.Exit()
 
     # Load configuration
     config = load_config(config_file or CONFIG_FILE)
 
+    # Get valid models and providers
+    valid_models, valid_providers = get_valid_models_and_providers(config)
+
     # Override config with command line options if provided
-    if supplier is not None:
-        config["provider"] = supplier
+    if provider is not None:
+        if provider not in valid_providers:
+            rich_console.print(Text(f"Invalid provider: {provider}", style="bold red"))
+            provider = validate_provider(config, valid_providers)
+        config["provider"] = provider
 
     if api_key:
         config[f"{config['provider']}_api_key"] = api_key
@@ -153,31 +167,16 @@ def main(
         config["max_tokens"] = max_tokens
     if multiline is not None:
         config["multiline"] = multiline
+    else:
+        config["multiline"] = False  # or True, depending on your default preference
     if show_spinner is not None:
         config["show_spinner"] = show_spinner
     if storage_format:
         config["storage_format"] = storage_format
 
-    valid_models = get_valid_models(config)
-
     # Validate the model
     if config["model"] not in valid_models:
-        session = PromptSession(completer=ModelCompleter(valid_models))
-        while True:
-            config["model"] = session.prompt(
-                f"Invalid model '{config['model']}' for provider '{config['provider']}'. Please enter a valid model: "
-            )
-            if config["model"] in valid_models:
-                break
-            else:
-                rich_console.print(
-                    Text(
-                        f"'{config['model']}' is not a valid model for provider '{config['provider']}'.",
-                        style="bold red",
-                    )
-                )
-
-    validate_model(config)  # Pass the entire config dictionary
+        config["model"] = validate_model(config, valid_models)
 
     # Validate API key
     try:
@@ -250,6 +249,8 @@ def main(
     # Initialize budget manager
     budget_manager = initialize_budget_manager(config)
 
+    highlighter = UserAIHighlighter()
+
     while True:
         try:
             user_message, code_blocks = start_prompt(
@@ -264,6 +265,7 @@ def main(
             if user_message["content"].lower() in ["exit", "quit", "q"]:
                 break
 
+            # Display user message with highlighting
             messages.append(user_message)
 
             # Check budget before making the API call
@@ -286,6 +288,9 @@ def main(
                                 "content": response_content,
                             }
                         )
+                        # Display AI response with highlighting
+                        ai_text = Text("AI:")
+                        console.print(highlighter(ai_text))
                         code_blocks = print_markdown(response_content, code_blocks)
 
                         # Update token counts
@@ -333,30 +338,58 @@ def main(
 
     # Display usage statistics and save information
     stats = get_usage_stats()
-    rich_console.print(Text("\nUsage Statistics:", style="underline red"))
+
+    # Create a table for usage statistics
+    table = Table(
+        title="Usage Statistics",
+        show_header=False,
+        expand=True,
+        border_style="bold cyan",
+    )
+    table.add_column("Item", style="bold #f5e0dc")  # Catppuccin Rosewater
+    table.add_column("Value", style="#cba6f7")  # Catppuccin Mauve
+
     for user, current_cost, model_costs, total_budget in stats:
-        rich_console.print(Text(f"User: {user}", style="white"))
-        rich_console.print(
-            Text(f"Total Cost: ${current_cost:.6f}", style="underline purple")
-        )
-        rich_console.print(Text(f"Total Budget: ${total_budget:.2f}", style="white"))
-        rich_console.print(Text("Cost breakdown by model:", style="white"))
+        table.add_row("User", user)
+        table.add_row("Total Cost", f"${current_cost:.6f}")
+        table.add_row("Total Budget", f"${total_budget:.2f}")
+        table.add_row("Cost breakdown by model", "")
+
         if isinstance(model_costs, dict):
             for model, cost in model_costs.items():
-                rich_console.print(Text(f"  {model}: ${cost:.6f}", style="white"))
+                table.add_row(f"  {model}", f"${cost:.6f}")
         else:
-            rich_console.print(Text(f"  Total: ${model_costs:.6f}", style="white"))
-        rich_console.print(
-            Text(
-                f"Remaining Budget: ${total_budget - current_cost:.6f}",
-                style="white",
-            )
-        )
+            table.add_row("  Total", f"${model_costs:.6f}")
+
+        remaining_budget = total_budget - current_cost
+        table.add_row("Remaining Budget", f"${remaining_budget:.6f}")
+
+        # Add a separator between users if there are multiple
+        if (
+            stats.index((user, current_cost, model_costs, total_budget))
+            < len(stats) - 1
+        ):
+            table.add_row("", "")
+
+    # Create a panel to contain the table
+    panel = Panel(
+        table,
+        expand=False,
+        border_style="bold #89dceb",  # Catppuccin Sky
+        padding=(1, 1),
+    )
+
+    rich_console.print(panel)
 
     # Display save information if available
     if save_info:
         rich_console.print(
-            Text(f"\nSession saved as: {save_info}", style="bold underline red")
+            Panel(
+                f"Session saved as: {save_info}",
+                expand=False,
+                border_style="bold #f9e2af",  # Catppuccin Yellow
+                style="#f9e2af",
+            )
         )
 
     # Save the budget data
@@ -366,4 +399,4 @@ def main(
 if __name__ == "__main__":
     logger.remove()
     logger.add("logs/chatgpt_{time}.log", enqueue=True)
-    main()
+    app()

@@ -6,13 +6,17 @@ import tempfile
 import subprocess
 import os
 import pyperclip
-from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from chatgpt.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
+from prompt_toolkit.formatted_text import HTML
 from chatgpt.config.config import budget_manager
+from catppuccin.extras.pygments import MochaStyle
+from rich.highlighter import Highlighter
 from rich.panel import Panel
+from prompt_toolkit.filters import Condition
+from rich.text import Text
 
 console = create_custom_console()
 
@@ -29,6 +33,20 @@ def _(event: Any) -> None:
 def _(event: Any) -> None:
     """Open the last response in the editor."""
     open_editor_with_last_response(event.app.state["messages"])
+
+
+def create_keybindings(multiline):
+    kb = KeyBindings()
+
+    @kb.add("escape", "enter", filter=Condition(lambda: multiline))
+    def _(event):
+        event.app.exit(result=event.app.current_buffer.text)
+
+    @kb.add("enter", filter=Condition(lambda: not multiline))
+    def _(event):
+        event.app.exit(result=event.app.current_buffer.text)
+
+    return kb
 
 
 def start_prompt(
@@ -68,20 +86,29 @@ def start_prompt(
             provider = config.get("provider", "Unknown")
             model = config.get("model", "Unknown")
 
-            limiter = "─" * 150  # Adjust the number based on your preferred width
+            # Create a spacer with Catppuccin Green dashes
+            spacer = Text("─" * 35, style="#a6e3a1")  # Catppuccin Green
 
+            # Print the header information
+            console.print(Text("ChatGPT CLI", style="#89dceb"))  # Catppuccin Sky
+            console.print(
+                Text(f"Provider: {provider}", style="#f9e2af")
+            )  # Catppuccin Yellow
+            console.print(Text(f"Model: {model}", style="#f9e2af"))  # Catppuccin Yellow
+            console.print(spacer)
+
+            # Prepare the prompt text with tokens and cost
             prompt_text = (
-                f"<style fg='cyan'>ChatGPT CLI</style>\n"
-                f"<style fg='yellow'>Provider: {provider}</style>\n"
-                f"<style fg='yellow'>Model: {model}</style>\n"
-                f"<style fg='green'>{limiter}</style>\n"
-                f"<style fg='blue'>[Tokens: {prompt_tokens + completion_tokens}]</style> "
-                f"<style fg='red'>[Cost: ${current_cost:.6f}]</style> >>> "
+                f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
+                f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>\n"
+                ">>> "
             )
 
+            kb = create_keybindings(config["multiline"])
             message = session.prompt(
                 HTML(prompt_text),
-                key_bindings=bindings,
+                multiline=config["multiline"],
+                key_bindings=kb,
             )
 
         # Handle special commands
@@ -120,83 +147,131 @@ def handle_copy_command(
                     try:
                         pyperclip.copy(code_blocks[block_id]["content"])
                         console.print(
-                            f"Copied block {block_id} to clipboard", style="success"
+                            f"Copied block {block_id} to clipboard",
+                            style="#a6e3a1",  # Catppuccin Green
                         )
                     except pyperclip.PyperclipException:
                         console.print(
                             "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
-                            style="error",
+                            style="#f38ba8",  # Catppuccin Red
                         )
                 else:
                     console.print(
-                        f"No code block with ID {block_id} available", style="error"
+                        f"No code block with ID {block_id} available",
+                        style="#f38ba8",  # Catppuccin Red
                     )
             elif code_blocks:
                 last_block_id = max(code_blocks.keys())
                 pyperclip.copy(code_blocks[last_block_id]["content"])
-                console.print("Copied last code block to clipboard", style="success")
+
+                console.print(
+                    "Copied last code block to clipboard", style="#a6e3a1"
+                )  # Catppuccin Green
             else:
-                console.print("No code blocks available to copy", style="error")
+                console.print(
+                    "No code blocks available to copy", style="#f38ba8"
+                )  # Catppuccin Red
         else:
-            console.print("Invalid copy command format", style="error")
+            console.print(
+                "Invalid copy command format", style="#f38ba8"
+            )  # Catppuccin Red
     else:
-        console.print("Easy copy is disabled in the configuration", style="error")
+        console.print(
+            "Easy copy is disabled in the configuration", style="#f38ba8"
+        )  # Catppuccin Red
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
-    """Prints Markdown content with code blocks highlighted.
+    """Prints the given content as markdown with integrated code blocks.
 
     Args:
-        content: The Markdown content to print.
+        content: The content to print as markdown.
         code_blocks: A dictionary of code blocks extracted from the LLM response.
     """
     if code_blocks is None:
         code_blocks = {}
 
     lines = content.split("\n")
-    code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
-    code_block_content = []
-    code_block_language = ""
-    regular_content = []
+    current_block = []
+    current_language = ""
+    block_index = 1
+    text_buffer = []
 
     for line in lines:
-        if line.startswith("```") and not code_block_open:
-            code_block_open = True
-            code_block_language = line.replace("```", "").strip()
-            if regular_content:
-                console.print(Markdown("\n".join(regular_content)))
-                regular_content = []
-        elif line.startswith("```") and code_block_open:
-            code_block_open = False
-            snippet_text = "\n".join(code_block_content)
-            code_blocks[str(code_block_id)] = {
-                "content": snippet_text,
-                "language": code_block_language,
-            }
+        if line.strip().startswith("```") and not code_block_open:
+            # Print any accumulated text before the code block
+            if text_buffer:
+                console.print(Markdown("\n".join(text_buffer), justify="left"))
+                text_buffer = []
 
+            code_block_open = True
+            parts = line.strip().split("```", 1)
+            current_language = parts[1].strip() if len(parts) > 1 else ""
+        elif line.strip() == "```" and code_block_open:
+            code_block_open = False
+            block_content = "\n".join(current_block)
             syntax = Syntax(
-                snippet_text,
-                code_block_language,
-                theme="monokai",
+                block_content,
+                current_language or "text",
+                theme=MochaStyle,
                 line_numbers=True,
             )
-            console.print(
-                Panel(syntax, title=f"Code Block {code_block_id}", expand=False)
+            panel = Panel(
+                syntax,
+                expand=False,
+                border_style="#89dceb",  # Catppuccin Sky
+                title=f"Code Block {block_index} - {current_language}"
+                if current_language
+                else f"Code Block {block_index}",
+                title_align="left",
             )
+            console.print(panel)
 
-            code_block_id += 1
-            code_block_content = []
-            code_block_language = ""
+            # Add the code block to the dictionary
+            code_blocks[str(block_index)] = {
+                "content": block_content,
+                "language": current_language,
+            }
+
+            block_index += 1
+            current_block = []
+            current_language = ""
         elif code_block_open:
-            code_block_content.append(line)
+            current_block.append(line)
         else:
-            regular_content.append(line)
+            # Accumulate text lines
+            text_buffer.append(line)
 
-    if code_block_open:
-        console.print(Markdown("\n".join(code_block_content)))
-    elif regular_content:
-        console.print(Markdown("\n".join(regular_content)))
+    # Print any remaining text
+    if text_buffer:
+        console.print(Markdown("\n".join(text_buffer), justify="left"))
+
+    # Handle any remaining open code block
+    if code_block_open and current_block:
+        block_content = "\n".join(current_block)
+        syntax = Syntax(
+            block_content,
+            current_language or "text",
+            theme=MochaStyle,
+            line_numbers=True,
+        )
+        panel = Panel(
+            syntax,
+            expand=False,
+            border_style="#89dceb",  # Catppuccin Sky
+            title=f"Code Block {block_index} - {current_language}"
+            if current_language
+            else f"Code Block {block_index}",
+            title_align="left",
+        )
+        console.print(panel)
+
+        # Add the last code block to the dictionary
+        code_blocks[str(block_index)] = {
+            "content": block_content,
+            "language": current_language,
+        }
 
     return code_blocks
 
@@ -234,7 +309,7 @@ def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[s
         last_response = messages[-1]["content"]
         open_editor_with_content(last_response)
     else:
-        console.print("No previous response to edit", style="error")
+        console.print("No previous response to edit", style="#f38ba8")  # Catppuccin Red
 
 
 def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
@@ -247,39 +322,51 @@ def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     lines = content.split("\n")
     code_block_id = 1 + max(map(int, code_blocks.keys()), default=0)
     code_block_open = False
-    code_block_content: List[str] = []
-    language = ""
+    code_block_content = []
+    code_block_language = ""
 
     for line in lines:
-        if line.startswith("```") and not code_block_open:
+        if line.strip().startswith("```") and not code_block_open:
             code_block_open = True
-            language = line[3:].strip()
-        elif line.startswith("```") and code_block_open:
+            parts = line.strip().split("```", 1)
+            code_block_language = parts[1].strip() if len(parts) > 1 else ""
+        elif line.strip() == "```" and code_block_open:
             code_block_open = False
             snippet_text = "\n".join(code_block_content)
             code_blocks[str(code_block_id)] = {
                 "content": snippet_text,
-                "language": language,
+                "language": code_block_language,
             }
             code_block_id += 1
             code_block_content = []
-            language = ""
+            code_block_language = ""
         elif code_block_open:
             code_block_content.append(line)
 
+    if code_block_open:
+        snippet_text = "\n".join(code_block_content)
+        code_blocks[str(code_block_id)] = {
+            "content": snippet_text,
+            "language": code_block_language,
+        }
 
-def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
-    """Prints a summary of the extracted code blocks.
+    return code_blocks
 
-    Args:
-        code_blocks: A dictionary of code blocks extracted from the LLM response.
-    """
-    if code_blocks:
-        console.print("\nCode blocks:", style="bold")
-        for block_id, block_info in code_blocks.items():
-            console.print(
-                f"  [{block_id}] {block_info['language']} ({len(block_info['content'].split('\n'))} lines)"
-            )
+
+# def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
+#     """Prints a summary of the extracted code blocks.
+
+#     Args:
+#         code_blocks: A dictionary of code blocks extracted from the LLM response.
+#     """
+#     if code_blocks:
+#         console.print("\nCode blocks:", style="bold")
+#         for block_id, block_info in code_blocks.items():
+#             title = f" - {block_info['title']}" if block_info["title"] else ""
+#             console.print(
+#                 f"  [{block_id}] {block_info['language']}{title} "
+#                 f"({len(block_info['content'].split('\n'))} lines)"
+#             )
 
 
 def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
@@ -307,3 +394,11 @@ def get_usage_stats():
         total_budget = budget_manager.get_total_budget(user)
         stats.append((user, current_cost, model_costs, total_budget))
     return stats
+
+
+class UserAIHighlighter(Highlighter):
+    def highlight(self, text: Text) -> None:
+        if text.plain.startswith("User:"):
+            text.stylize("#f5c2e7")  # Catppuccin Pink
+        elif text.plain.startswith("AI:"):
+            text.stylize("#94e2d5")  # Catppuccin Teal

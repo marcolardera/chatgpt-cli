@@ -1,6 +1,6 @@
 # ChatGPT CLI
 
-![Screenshot](screenshot.png)
+![Gif](assets/video.gif)
 
 ## Overview
 
@@ -58,7 +58,7 @@ budget_user: "default_user"
 1. **Install the CLI**:
 
     ```console
-    pip install git+https://github.com/tadeasf/chatgpt-cli.git@refactor_anthropic_markdown_rich
+    pipx install git+https://github.com/tadeasf/chatgpt-cli.git@styling
     ```
 
 2. **Configure the CLI**:
@@ -74,6 +74,14 @@ budget_user: "default_user"
     - `/q`: Quit the application.
     - `/c <n>`: Copy the nth code block to the clipboard.
     - `/e`: Open the last response in the editor.
+
+## Screenshots
+
+![Screenshot1](assets/1.jpg)
+![Screenshot2](assets/2.jpg)
+![Screenshot3](assets/3.jpg)
+![Screenshot4](assets/4.jpg)
+![Screenshot5](assets/5.jpg)
 
 ## How It Works
 

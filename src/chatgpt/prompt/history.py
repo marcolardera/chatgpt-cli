@@ -3,6 +3,9 @@ from typing import Dict, Any, List, Tuple
 import os
 from datetime import datetime
 from chatgpt.config.config import SAVE_FOLDER, budget_manager
+from chatgpt.prompt.custom_console import create_custom_console
+
+console = create_custom_console()
 
 
 def load_history_data(history_file: str) -> Dict[str, Any]:
@@ -134,6 +137,15 @@ def save_history(
             f.write(
                 f"Total Budget: ${budget_manager.get_total_budget(config['budget_user']):.2f}\n"
             )
+
+    # console.print(
+    #     Panel(
+    #         f"History saved to: {filepath}",
+    #         expand=False,
+    #         border_style="#89dceb",  # Catppuccin Sky
+    #         style="#a6e3a1",  # Catppuccin Green
+    #     )
+    # )
 
     return save_file
 

@@ -7,12 +7,12 @@ from litellm import check_valid_key
 from chatgpt.config.config import CONFIG_FILE
 
 
-def get_and_update_api_key(config: Dict, supplier: str) -> bool:
+def get_and_update_api_key(config: Dict, provider: str) -> bool:
     """Prompts the user for a new API key, updates the config, and validates it.
 
     Args:
         config (Dict): The configuration dictionary.
-        supplier (str): The name of the API provider.
+        provider (str): The name of the API provider.
 
     Returns:
         bool: True if the API key was updated successfully, False otherwise.
@@ -21,20 +21,20 @@ def get_and_update_api_key(config: Dict, supplier: str) -> bool:
     session = PromptSession(key_bindings=kb)
 
     while True:
-        api_key = session.prompt(f"Enter API key for {supplier}: ")
+        api_key = session.prompt(f"Enter API key for {provider}: ")
         if api_key:
-            config[f"{supplier}_api_key"] = api_key
+            config[f"{provider}_api_key"] = api_key
             update_config_file(config)
 
             # Validate the API key using LiteLLM
             if check_valid_key(model=config["model"], api_key=api_key):
                 console.print(
-                    f"API key for {supplier} updated successfully.", style="success"
+                    f"API key for {provider} updated successfully.", style="success"
                 )
                 return True
 
         console.print(
-            f"Invalid API key for {supplier}. Please try again.", style="error"
+            f"Invalid API key for {provider}. Please try again.", style="error"
         )
 
 
@@ -48,17 +48,17 @@ def update_config_file(config: Dict) -> None:
         yaml.dump(config, f)
 
 
-def validate_api_key(config: Dict, supplier: str) -> bool:
-    """Validates the API key for the given supplier.
+def validate_api_key(config: Dict, provider: str) -> bool:
+    """Validates the API key for the given provider.
 
     Args:
         config (Dict): The configuration dictionary.
-        supplier (str): The name of the API provider.
+        provider (str): The name of the API provider.
 
     Returns:
         bool: True if the API key is valid, False otherwise.
     """
-    api_key_key = f"{supplier}_api_key"
+    api_key_key = f"{provider}_api_key"
     if api_key_key not in config or not config[api_key_key]:
-        return get_and_update_api_key(config, supplier)
+        return get_and_update_api_key(config, provider)
     return check_valid_key(model=config["model"], api_key=config[api_key_key])
