@@ -1,0 +1,31 @@
+provider: "anthropic"
+model: "claude-3-sonnet-20240229"
+temperature: 0.7
+markdown: true
+easy_copy: true
+non_interactive: false
+json_mode: false
+use_proxy: false
+proxy: "socks5://127.0.0.1:2080"
+storage_format: "markdown"
+embedding_model: "text-embedding-ada-002"
+embedding_dimension: 1536
+max_context_tokens: 3500
+show_spinner: true
+max_tokens: 1024
+budget_enabled: true
+budget_amount: 10.0
+budget_duration: "monthly"
+budget_user: "default_user"
+
+# API Keys (uncomment and fill in as needed)
+# openai_api_key: "<INSERT YOUR OPENAI API KEY HERE>"
+# anthropic_api_key: "<INSERT YOUR ANTHROPIC API KEY HERE>"
+# azure_api_key: "<INSERT YOUR AZURE API KEY HERE>"
+# gemini_api_key: "<INSERT YOUR GEMINI API KEY HERE>"
+
+# Azure specific settings (uncomment if using Azure)
+# azure_endpoint: "https://xxxx.openai.azure.com/"
+# azure_api_version: "2023-07-01-preview"
+# azure_deployment_name: "gpt-35-turbo"
+# azure_deployment_name_eb: "text-embedding-ada-002"

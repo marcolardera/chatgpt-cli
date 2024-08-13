@@ -16,7 +16,7 @@ from config.config import (
     SAVE_FOLDER,
     get_proxy,
     check_budget,
-    budget_manager,
+    initialize_budget_manager,
 )
 from config.model_handler import validate_model, get_valid_models
 from config.config import get_api_key
@@ -247,6 +247,9 @@ def main(
     # Initialize save_info
     save_info = None
 
+    # Initialize budget manager
+    budget_manager = initialize_budget_manager(config)
+
     while True:
         try:
             user_message, code_blocks = start_prompt(
@@ -355,6 +358,9 @@ def main(
         rich_console.print(
             Text(f"\nSession saved as: {save_info}", style="bold underline red")
         )
+
+    # Save the budget data
+    budget_manager.save_data()
 
 
 if __name__ == "__main__":
