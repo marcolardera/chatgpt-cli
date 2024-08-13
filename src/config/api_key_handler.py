@@ -8,7 +8,15 @@ from config.config import CONFIG_FILE
 
 
 def get_and_update_api_key(config: Dict, supplier: str) -> bool:
-    """Prompts the user for a new API key, updates the config, and validates it."""
+    """Prompts the user for a new API key, updates the config, and validates it.
+
+    Args:
+        config (Dict): The configuration dictionary.
+        supplier (str): The name of the API provider.
+
+    Returns:
+        bool: True if the API key was updated successfully, False otherwise.
+    """
     kb = KeyBindings()
     session = PromptSession(key_bindings=kb)
 
@@ -31,13 +39,25 @@ def get_and_update_api_key(config: Dict, supplier: str) -> bool:
 
 
 def update_config_file(config: Dict) -> None:
-    """Updates the configuration file with the new config."""
+    """Updates the configuration file with the new config.
+
+    Args:
+        config (Dict): The configuration dictionary.
+    """
     with open(CONFIG_FILE, "w") as f:
         yaml.dump(config, f)
 
 
 def validate_api_key(config: Dict, supplier: str) -> bool:
-    """Validates the API key for the given supplier."""
+    """Validates the API key for the given supplier.
+
+    Args:
+        config (Dict): The configuration dictionary.
+        supplier (str): The name of the API provider.
+
+    Returns:
+        bool: True if the API key is valid, False otherwise.
+    """
     api_key_key = f"{supplier}_api_key"
     if api_key_key not in config or not config[api_key_key]:
         return get_and_update_api_key(config, supplier)
