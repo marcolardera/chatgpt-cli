@@ -4,215 +4,176 @@
 
 ## Overview
 
-Simple script for chatting with ChatGPT / Claude from the command line, using the official
-API ([Released March 1st, 2023](https://openai.com/blog/introducing-chatgpt-and-whisper-apis)). It allows, after
-providing a valid API Key, to use ChatGPT / Claude at the maximum speed, at a fraction of the cost of a full ChatGPT
-Plus
-subscription (at least for the average user).
+This project provides a command-line interface (CLI) for interacting with various large language models (LLMs) using the LiteLLM wrapper. It supports multiple providers, including OpenAI, Anthropic, Azure, and Gemini. The CLI allows users to chat with these models, manage budgets, and handle API keys efficiently.
 
-**Update (06/07/2024):** Added support for Anthropic/Claude models.
+## Big Refactor
 
-## How to choose which supplier to use
+The project has undergone a significant refactor to improve modularity and maintainability. The codebase is now split into multiple modules:
 
-- Assign `supplier` to `chatgpt-cli --supplier <supplier>`;
-- Assign `supplier` to config file under `~/.config`;
+- **llm_api**: Handles interactions with the LLMs.
+- **prompt**: Manages user prompts and input handling.
+- **logs**: Manages logging and console output.
+- **config**: Handles configuration, API keys, and budget management.
 
-Default to `openai`, CLI argument has higher priority than config file.
+## Configuration
 
-## How to get an API Key
+The configuration is managed through a `config.yaml` file. Below is an example configuration:
 
-Go to [platform.openai.com](https://platform.openai.com) and log-in with your OpenAI account (register if you don't have
-one). Click on your name initial in the top-right corner, then select *"View API keys"*. Finally click on *"Create new
-secret key"*. That's it.
+```yaml
+provider: "anthropic"
+model: "claude-3-sonnet-20240229"
+temperature: 0.7
+markdown: true
+easy_copy: true
+non_interactive: false
+json_mode: false
+use_proxy: false
+proxy: "socks5://127.0.0.1:2080"
+storage_format: "markdown"
+embedding_model: "text-embedding-ada-002"
+embedding_dimension: 1536
+max_context_tokens: 3500
+show_spinner: true
+max_tokens: 1024
+budget_enabled: true
+budget_amount: 10.0
+budget_duration: "monthly"
+budget_user: "default_user"
 
-You may also need to add a payment method, clicking on *Billing --> Payment methods*. New accounts should have some free
-credits, but adding a payment method may still be mandatory. For pricing, check [this page](https://openai.com/pricing).
+# API Keys (uncomment and fill in as needed)
+# openai_api_key: "<INSERT YOUR OPENAI API KEY HERE>"
+# anthropic_api_key: "<INSERT YOUR ANTHROPIC API KEY HERE>"
+# azure_api_key: "<INSERT YOUR AZURE API KEY HERE>"
+# gemini_api_key: "<INSERT YOUR GEMINI API KEY HERE>"
 
-**Update (16/02/2024):** Some user accounts now requires to charge in advance the credit balance in order to use the
-OpenAI APIs. Check *Settings --> Billing* for that.
-
-<!-- TODO: add instruction - how to get API key on Anthropic --> 
-
-## Installation and essential configuration
-
-You need Python (at least version 3.10), Pip and Git installed on your system.
-
-First update Pip (having an older version can cause troubles on some systems):
-
-```console
-pip install -U pip
+# Azure specific settings (uncomment if using Azure)
+# azure_endpoint: "https://xxxx.openai.azure.com/"
+# azure_api_version: "2023-07-01-preview"
+# azure_deployment_name: "gpt-35-turbo"
+# azure_deployment_name_eb: "text-embedding-ada-002"
 ```
 
-Then, the installation is done simply with a single command:
+## Installation and Usage
 
-```console
-pip install git+https://github.com/marcolardera/chatgpt-cli
-```
+1. **Install the CLI**:
 
-After that, you need to configure your API Key. There are three alternative ways to provide this parameter:
+    ```console
+    pip install git+https://github.com/marcolardera/chatgpt-cli
+    ```
 
-- Edit the `api-key` parameter in the *config.yaml* file (see paragraph below)
-- Set the environment variable `CHAT_API_KEY` (or `OPENAI_API_KEY`) (Check your operating system's documentation on how
-  to do this)
-- Use the command line option `--key` or `-k`
+2. **Configure the CLI**:
+    Edit the `config.yaml` file to set your preferred provider, model, and other settings.
 
-If more then one API Key is provided, ChatGPT CLI follows this priority order: *Command line option > Environment
-variable > Configuration file*
+3. **Run the CLI**:
 
-### Configuration file
+    ```console
+    chatgpt-cli
+    ```
 
-The configuration file *config.yaml* can be found in the default config directory of the user defined by
-the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
+4. **Commands**:
+    - `/q`: Quit the application.
+    - `/c <n>`: Copy the nth code block to the clipboard.
+    - `/e`: Open the last response in the editor.
 
-On a Linux/MacOS system it is defined by the $XDG_CONFIG_HOME variable (check it using `echo $XDG_CONFIG_HOME`). The
-default, if the variable is not set, should be the `~/.config` folder.
+## How It Works
 
-On the first execution of the script, a [template](config.yaml) of the config file is automatically created. If a config
-file already exists but is missing any fields, default values are used for the missing fields.
+### Interacting with LLMs
 
-## Suppliers
+The `llm_api` module is responsible for sending messages to the LLM with the given context and returning the response. It handles different providers and ensures all messages have valid roles. The module uses LiteLLM's `completion` function to interact with the models.
 
-You can set the supplier as `openai` (the default) or `azure` in the [config.yaml](config.yaml). Remember to set the
-parameters corresponding to the specific supplier.
+#### Key Functions and Flow
 
-## Models
+1. **chat_with_context**:
+    - This function sends a message to the LLM with the given context and returns the response.
+    - It takes in the configuration dictionary, a list of messages, a prompt session, proxy configuration, and a flag to show a spinner.
+    - It ensures all messages have valid roles and handles provider-specific requirements, such as prefix handling for Anthropic models.
+    - It uses LiteLLM's `completion` function to get the response from the LLM.
+    - The response is then processed by the `handle_response` function.
 
-ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model`
-parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available
-options:
+### LiteLLM Integration
 
-| Name                         | Pricing (input token) | Pricing(output token) |
-|------------------------------|-----------------------|-----------------------|
-| `gpt-3.5-turbo`              | 0.0005                | 0.0015                |
-| `gpt-3.5-turbo-0125`         | 0.0005                | 0.0015                |
-| `gpt-3.5-turbo-1106`         | 0.0005                | 0.0015                |
-| `gpt-3.5-turbo-0613`         | 0.0005                | 0.0015                |
-| `gpt-3.5-turbo-16k`          | 0.0005                | 0.0015                |
-| `gpt-4`                      | 0.03                  | 0.06                  |
-| `gpt-4-0613`                 | 0.03                  | 0.06                  |
-| `gpt-4-32k`                  | 0.06                  | 0.12                  |
-| `gpt-4-32k-0613`             | 0.06                  | 0.12                  |
-| `gpt-4-1106-preview`         | 0.01                  | 0.03                  |
-| `gpt-4-0125-preview`         | 0.01                  | 0.03                  |
-| `gpt-4-turbo`                | 0.01                  | 0.03                  |
-| `gpt-4o`                     | 0.005                 | 0.015                 |
-| `claude-3-5-sonnet-20240620` | 0.003                 | 0.015                 |
-| `claude-3-opus-20240229`     | 0.015                 | 0.075                 |
-| `claude-3-5-sonnet-20240620`   | 0.003                 | 0.015                 |
-| `claude-3-haiku-20240307`    | 0.00025               | 0.00125               |
+- **Completion Function**: The `completion` function from LiteLLM is used to interact with the models. It takes in parameters such as the model, messages, and API key. For more details, refer to the [LiteLLM documentation on completion](https://docs.litellm.ai/docs/completion).
 
-Pricing is calculated as $/1000 tokens.
+- **Provider-Specific Parameters**: The module handles provider-specific parameters, such as prefix handling for Anthropic models. For more details, refer to the [LiteLLM documentation on provider-specific parameters](https://docs.litellm.ai/docs/completion/provider_specific_params).
 
-Check [this page](https://platform.openai.com/docs/models) for the technical details of each model.
+- **Response Handling**: The response from the LLM is processed to extract the content and usage statistics. For more details, refer to the [LiteLLM documentation on response output](https://docs.litellm.ai/docs/completion/output).
 
-Also note that, if you use Azure as a supplier, this pricing may not be accurate.
+### Managing User Prompts
 
-## Basic usage
+The `prompt` module manages user prompts and input handling. It provides features such as key bindings for quitting the application and opening the last response in an editor.
 
-Launch the script typing in your terminal:
+1. **start_prompt**:
+    - This function starts the prompt loop and handles user input.
+    - It takes in the prompt session, configuration dictionary, list of messages, token counts, and code blocks.
+    - It handles special commands like quitting the application, copying code blocks, and opening the last response in an editor.
 
-`chatgpt-cli`
+2. **add_markdown_system_message**:
+    - This function adds a system message to instruct the model to use Markdown formatting.
 
-Then just chat! The number next to the prompt is the [tokens](https://platform.openai.com/tokenizer) used in the
-conversation at that point.
+3. **get_usage_stats**:
+    - This function retrieves usage statistics for all users, including current cost, model costs, and total budget.
 
-Use the `/q` command to quit and show the number of total tokens used and an estimate of the expense for that session,
-based on the specific model in use.
+### Managing Expenses
 
-Use the `/copy` (or `/c`) command to copy code blocks from the generated output. Specifically, `/copy` or `/c` followed
-by an integer copies the nth code block to the clipboard. Code blocks are labeled in the console output so that it is
-clear which index corresponds to which block. Running the `/copy` command without any arguments copies the entire
-contents of the previous response.
+The `expenses` module provides functions to display and calculate expenses based on token usage and pricing rates.
 
-For displaying all the available commands check the help with `chatgpt-cli --help`
+1. **display_expense**:
+    - This function displays the current cost, total budget, and remaining budget for the user.
+    - It uses the `BudgetManager` from the `config` module to get the current cost and total budget.
 
-## Multiline input
+2. **calculate_expense**:
+    - This function calculates the expense based on the number of tokens and pricing rates.
 
-Add the `--multiline` (or `-ml`) flag in order to toggle multi-line input mode. In this mode use `Alt+Enter`
-or `Esc+Enter` to submit messages.
+### Managing History
 
-## Context
+The `history` module provides functions to load and save conversation history.
 
-Use the `--context <FILE PATH>` command line option (or `-c` as a short version) in order to provide the model an
-initial context (technically a *system* message for ChatGPT). For example:
+1. **load_history_data**:
+    - This function loads history data from a file. It supports both JSON and Markdown formats.
 
-`chatgpt-cli --context notes.txt`
+2. **save_history**:
+    - This function saves the history data to a file. It supports both JSON and Markdown formats.
 
-Both absolute and relative paths are accepted. Note that this option can be specified multiple times to give multiple
-files for context. Example:
+3. **calculate_tokens_and_cost**:
+    - This function calculates the number of tokens and cost for a conversation.
 
-`chatgpt-cli --context notes-from-thursday.txt --context notes-from-friday.txt`
+### Configuration and Budget Management
 
-Typical use cases for this feature are:
+The `config` module loads the configuration from the `config.yaml` file, initializes the budget manager, and provides utility functions for managing the configuration and budget. It uses LiteLLM's `BudgetManager` to handle budget constraints and track usage.
 
-- Giving the model some code and ask to explain/refactor
-- Giving the model some text and ask to rephrase with a different style (more formal, more friendly, etc)
-- Asking for a translation of some text
+1. **load_config**:
+    - This function loads the configuration from the config file and ensures all necessary keys are present.
 
-## Markdown rendering
+2. **initialize_budget_manager**:
+    - This function initializes the budget manager with the specified configuration.
 
-ChatGPT CLI automatically renders Markdown responses from the model, including code blocks, with appropriate formatting
-and syntax highlighting. **Update (31/05/2023):** Now tables are also rendered correctly, thanks to the new 13.4.0
-release of Rich.
+3. **check_budget**:
+    - This function checks if the current cost is within the budget limit.
 
-Change the `markdown` parameter from `true` to `false` in the `config.yaml` in order to disable this feature and display
-responses in plain text.
+### Main Application
 
-## Restoring previous sessions
+The `chatgpt.py` file is the main entry point of the application. It initializes the CLI, handles user input, and coordinates interactions between different modules.
 
-ChatGPT CLI saves all the past conversations (including context and token usage) in the `session-history` folder inside
-the $XDG_CONFIG_HOME discussed in a previous paragraph. In order to restore a session
-the `--restore <YYYYMMDD-hhmmss>` (or `-r`) option is available. For example:
+1. **Initialization**:
+    - The script initializes global variables, sets up logging, and configures the CLI using [`rich_click`](https://github.com/ewels/rich-click).
 
-`chatgpt-cli --restore 20230728-162302` restores the session from
-the `$XDG_CONFIG_HOME/chatgpt-cli/session-history/chatgpt-session-20230728-162302.json` file. Then the chat goes on from
-that point.
+2. **Model and Path Completion**:
+    - The `ModelCompleter` and `PathCompleter` classes provide [autocompletion](https://python-prompt-toolkit.readthedocs.io/en/master/pages/asking_for_input.html) for model names and file paths, respectively.
 
-It is also possible to use the special value `last`:
+3. **CLI Options**:
+    - The script defines various CLI options using [`click`](https://click.palletsprojects.com/en/8.1.x/), such as setting the model, temperature, max tokens, API key, and more.
 
-`chatgpt-cli --restore last`
+4. **Main Function**:
+    - The `main` function handles the main logic of the application. It loads the configuration, validates the model, and starts the prompt session.
+    - It checks the budget before making API calls and updates the budget after receiving responses.
+    - It saves the conversation history and displays usage statistics.
 
-In this case it restores the last chat session, without specifying the timestamp.
+I will eventually refactor the main function further.
 
-Note that, if `--restore` is set, it overwrites any `--context` option.
+## Contributing
 
-## Piping
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to this project.
 
-ChatGPT CLI can be used in a UNIX pipeline thanks to the `--non-interactive` (or `-n`) mode. Here is an example:
+## Logging
 
-`cat example_file.txt | chatgpt-cli -n`
-
-In this case the content of `example_file` is sent directly to ChatGPT and the response is returned on the standard
-output. This allows to use the tool inside shell scripts.
-
-## JSON Mode
-
-*Note:* This feature is only available for the `gpt-3.5-turbo-0125` and `gpt-4-turbo-preview` models for now.
-
-JSON Mode is enabled using the `--json` (or `-j`) flag. This forces ChatGPT to always respond with a JSON to each
-request. You must ask for a JSON explicitly (if the first message does not include the word "json" an "Invalid request"
-response is returned) and, in general, describe the schema and the content type of the desired result. Be careful of not
-being too vague in the request because you may get a very long, random response (with higher expenses).
-
-Also check the [OpenAI Documentation](https://platform.openai.com/docs/guides/text-generation/json-mode).
-
-## External tools
-
-### Copy selection as context (Linux)
-
-On Linux using XWindows, you can conveniently start a chat with any text you have highlighted in any application as the
-provided context. [This gist](https://gist.github.com/dwymark/df4e77c4e9fc33608bf22f1288d9195e) shows how this can be
-done on XFCE using `xclip`.
-
-### DALL-E CLI
-
-Check also my other little project [DALL-E CLI](https://github.com/marcolardera/dall-e-cli). The two tools may even be
-combined together through piping (Asking ChatGPT to create the perfect prompt to feed into DALL-E). Little example:
-
-`echo "Write the perfect prompt for an image generation model in order to represent a man wearing a banana costume" | chatgpt-cli -n | dall-e-cli -p`
-
-It works, despite not being 100% clear if it is useful or not.
-
-## Contributing to this project
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+The `logs` module manages logging and console output. It uses the `loguru` library for logging. To enable verbose output for LiteLLM, set the environment variable `os.environ["LITELLM_LOG"] = "DEBUG"`.
