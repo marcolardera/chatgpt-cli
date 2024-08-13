@@ -11,7 +11,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from chatgpt.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
-from config.config import budget_manager
+from chatgpt.config.config import budget_manager
 from rich.panel import Panel
 
 console = create_custom_console()
