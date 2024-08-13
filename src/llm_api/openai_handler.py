@@ -1,10 +1,10 @@
 from typing import Dict, Any, List, Optional, Tuple
 from prompt.prompt import console
 from prompt_toolkit import PromptSession
-from rich.spinner import Spinner
-from rich.live import Live
+from rich.panel import Panel
 from config.config import get_api_key, budget_manager
 import litellm
+import time
 
 SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
 
@@ -44,13 +44,21 @@ def chat_with_context(
         }
 
         if show_spinner:
-            with Live(
-                Spinner("dots", text="Waiting for response...", style="bold green")
-            ) as live:
+            with console.status(
+                "[bold green]Waiting for response...", spinner="dots"
+            ) as status:
+                start_time = time.time()
                 response = litellm.completion(**completion_kwargs)
-                response_content, response_obj = handle_response(
-                    response, budget_manager, config, user
-                )
+                elapsed_time = time.time() - start_time
+                status.update(status="[bold green]Response received!")
+
+            console.print(
+                Panel(f"Response time: {elapsed_time:.2f} seconds", expand=False)
+            )
+
+            response_content, response_obj = handle_response(
+                response, budget_manager, config, user
+            )
         else:
             response = litellm.completion(**completion_kwargs)
             response_content, response_obj = handle_response(

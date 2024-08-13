@@ -11,8 +11,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
-from config.config import budget_manager  # Import budget_manager
-
+from config.config import budget_manager
+from rich.panel import Panel
 
 # Initialize custom console
 console = create_custom_console()
@@ -140,11 +140,15 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
                 "language": code_block_language,
             }
 
-            console.print(f"[underline red]Code Block {code_block_id}:[/underline red]")
             syntax = Syntax(
-                snippet_text, code_block_language, theme="monokai", line_numbers=True
+                snippet_text,
+                code_block_language,
+                theme="monokai",
+                line_numbers=True,
             )
-            console.print(syntax)
+            console.print(
+                Panel(syntax, title=f"Code Block {code_block_id}", expand=False)
+            )
 
             code_block_id += 1
             code_block_content = []

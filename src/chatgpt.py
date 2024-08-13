@@ -15,7 +15,7 @@ from config.config import (
 )
 from config.model_handler import validate_model, get_valid_models
 from config.config import get_api_key
-from prompt.history import load_history_data, calculate_tokens_and_cost
+from prompt.history import load_history_data
 from typing import List, Dict, Union, Optional
 from llm_api.openai_handler import chat_with_context
 from logs.loguru_init import logger
@@ -96,10 +96,9 @@ class PathCompleter(Completer):
     help="Set the model supplier",
 )
 @click.option(
-    "--show-spinner",
-    "show_spinner",
-    is_flag=True,
-    help="Show spinner while waiting for response",
+    "--show-spinner/--no-spinner",
+    default=True,
+    help="Show/hide spinner while waiting for response",
 )
 @click.option(
     "--storage-format",
@@ -260,7 +259,7 @@ def main(
                     messages=messages,
                     session=session,
                     proxy=proxy,
-                    show_spinner=show_spinner,
+                    show_spinner=config["show_spinner"],
                 )
 
                 if result:
