@@ -7,7 +7,7 @@ import litellm
 from rich.panel import Panel
 from rich.text import Text
 
-SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked to generate code or a table always format it using Markdown syntax."
 
 # os.environ["LITELLM_LOG"] = "DEBUG"
 
