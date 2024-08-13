@@ -3,7 +3,6 @@ from typing import Dict, Any, List, Tuple
 import os
 from datetime import datetime
 from chatgpt.config.config import SAVE_FOLDER, budget_manager
-from rich.panel import Panel
 from chatgpt.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
