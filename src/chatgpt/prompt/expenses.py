@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from chatgpt.prompt.prompt import console
 from litellm import BudgetManager
+from rich.panel import Panel
+from rich.table import Table
 
 
 def display_expense(
@@ -23,16 +25,34 @@ def display_expense(
     # Calculate remaining budget
     remaining_budget = total_budget - current_cost
 
-    console.print(f"\nCurrent cost: ${current_cost:.6f}", style="bold")
-    console.print(f"Total budget: ${total_budget:.2f}", style="bold")
-    console.print(f"Remaining budget: ${remaining_budget:.6f}", style="success")
+    # Create a table for expense information
+    table = Table(
+        show_header=False, expand=True, border_style="#89dceb"
+    )  # Catppuccin Sky
+    table.add_column("Item", style="bold #f5e0dc")  # Catppuccin Rosewater
+    table.add_column("Value", style="#cba6f7")  # Catppuccin Mauve
+
+    table.add_row("Current cost", f"${current_cost:.6f}")
+    table.add_row("Total budget", f"${total_budget:.2f}")
+    table.add_row("Remaining budget", f"${remaining_budget:.6f}")
 
     # If you want to display model-specific costs
     model_costs = budget_manager.get_model_cost(user)
     if model_costs:
-        console.print("\nCost breakdown by model:", style="bold")
+        table.add_row("Cost breakdown by model", "")
         for model, cost in model_costs.items():
-            console.print(f"  {model}: ${cost:.6f}")
+            table.add_row(f"  {model}", f"${cost:.6f}")
+
+    # Create a panel to contain the table
+    panel = Panel(
+        table,
+        title="Expense Information",
+        expand=False,
+        border_style="#89dceb",  # Catppuccin Sky
+        title_align="left",
+    )
+
+    console.print(panel)
 
     # Save the updated data
     budget_manager.save_data()
