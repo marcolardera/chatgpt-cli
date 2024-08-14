@@ -1,7 +1,6 @@
 from prompt_toolkit import PromptSession
 from typing import Dict, Any, List, Optional, Tuple
 import re
-import sys
 import tempfile
 import subprocess
 import os
@@ -79,37 +78,36 @@ def start_prompt(
     }
 
     while True:
-        if config["non_interactive"]:
-            message = sys.stdin.read()
-        else:
+        current_cost = 0
+        if config.get("budget_enabled") and config.get("budget_user"):
             current_cost = budget_manager.get_current_cost(config["budget_user"])
-            provider = config.get("provider", "Unknown")
-            model = config.get("model", "Unknown")
 
-            # Create a spacer with Catppuccin Green dashes
-            spacer = Text("─" * 35, style="#a6e3a1")  # Catppuccin Green
+        provider = config.get("provider", "Unknown")
+        model = config.get("model", "Unknown")
 
-            # Print the header information
-            console.print(Text("ChatGPT CLI", style="#89dceb"))  # Catppuccin Sky
-            console.print(
-                Text(f"Provider: {provider}", style="#f9e2af")
-            )  # Catppuccin Yellow
-            console.print(Text(f"Model: {model}", style="#f9e2af"))  # Catppuccin Yellow
-            console.print(spacer)
+        # Create a spacer with Catppuccin Green dashes
+        spacer = Text("─" * 35, style="#a6e3a1")  # Catppuccin Green
 
-            # Prepare the prompt text with tokens and cost
-            prompt_text = (
-                f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
-                f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>\n"
-                ">>> "
-            )
+        # Print the header information
+        console.print(Text("ChatGPT CLI", style="#89dceb"))  # Catppuccin Sky
+        console.print(
+            Text(f"Provider: {provider}", style="#f9e2af")
+        )  # Catppuccin Yellow
+        console.print(Text(f"Model: {model}", style="#f9e2af"))  # Catppuccin Yellow
+        console.print(spacer)
 
-            kb = create_keybindings(config["multiline"])
-            message = session.prompt(
-                HTML(prompt_text),
-                multiline=config["multiline"],
-                key_bindings=kb,
-            )
+        # Prepare the prompt text with tokens and cost
+        prompt_text = f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
+        if config.get("budget_enabled") and config.get("budget_user"):
+            prompt_text += f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>"
+        prompt_text += "\n>>> "
+
+        kb = create_keybindings(config.get("multiline", False))
+        message = session.prompt(
+            HTML(prompt_text),
+            multiline=config.get("multiline", False),
+            key_bindings=kb,
+        )
 
         # Handle special commands
         if message.lower().strip() == "/q":

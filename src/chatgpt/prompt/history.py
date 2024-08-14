@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import os
 from datetime import datetime
 from chatgpt.config.config import SAVE_FOLDER, budget_manager
@@ -101,20 +101,20 @@ def save_history(
     # Ensure the directory exists
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
+    budget_info = {}
+    if config.get("budget_enabled", False) and config.get("budget_user"):
+        budget_info = {
+            "current_cost": budget_manager.get_current_cost(config["budget_user"]),
+            "total_budget": budget_manager.get_total_budget(config["budget_user"]),
+        }
+
     if storage_format.lower() == "json":
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "model": model,
                     "messages": messages,
-                    "budget_info": {
-                        "current_cost": budget_manager.get_current_cost(
-                            config["budget_user"]
-                        ),
-                        "total_budget": budget_manager.get_total_budget(
-                            config["budget_user"]
-                        ),
-                    },
+                    "budget_info": budget_info,
                 },
                 f,
                 indent=4,
@@ -130,28 +130,16 @@ def save_history(
             for message in messages:
                 f.write(f"### {message['role'].capitalize()}\n\n")
                 f.write(f"{message['content']}\n\n")
-            f.write("## Budget Information\n\n")
-            f.write(
-                f"Current Cost: ${budget_manager.get_current_cost(config['budget_user']):.6f}\n"
-            )
-            f.write(
-                f"Total Budget: ${budget_manager.get_total_budget(config['budget_user']):.2f}\n"
-            )
-
-    # console.print(
-    #     Panel(
-    #         f"History saved to: {filepath}",
-    #         expand=False,
-    #         border_style="#89dceb",  # Catppuccin Sky
-    #         style="#a6e3a1",  # Catppuccin Green
-    #     )
-    # )
+            if budget_info:
+                f.write("## Budget Information\n\n")
+                f.write(f"Current Cost: ${budget_info['current_cost']:.6f}\n")
+                f.write(f"Total Budget: ${budget_info['total_budget']:.2f}\n")
 
     return save_file
 
 
 def calculate_tokens_and_cost(
-    messages: List[Dict[str, str]], model: str, user: str
+    messages: List[Dict[str, str]], model: str, user: Optional[str] = None
 ) -> Tuple[int, int, float]:
     """
     Calculates the number of tokens and cost for a conversation.
@@ -159,7 +147,7 @@ def calculate_tokens_and_cost(
     Args:
         messages: The list of messages in the conversation.
         model: The model used for the conversation.
-        user: The user who initiated the conversation.
+        user: The user who initiated the conversation (optional).
 
     Returns:
         A tuple containing the number of prompt tokens, completion tokens, and total cost.
@@ -182,7 +170,9 @@ def calculate_tokens_and_cost(
     }
 
     # Update cost using the temporary response
-    budget_manager.update_cost(user=user, completion_obj=temp_response)
-    total_cost = budget_manager.get_current_cost(user)
+    total_cost = 0
+    if user:
+        budget_manager.update_cost(user=user, completion_obj=temp_response)
+        total_cost = budget_manager.get_current_cost(user)
 
     return prompt_tokens, completion_tokens, total_cost
