@@ -1,7 +1,7 @@
 import json
 import requests
 from typing import Dict, Any, List, Optional, Tuple
-from chatgpt.prompt.custom_console import create_custom_console
+from chatgpt_cli.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
 

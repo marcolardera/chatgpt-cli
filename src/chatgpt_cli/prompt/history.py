@@ -2,8 +2,8 @@ import json
 from typing import Dict, Any, List, Tuple, Optional
 import os
 from datetime import datetime
-from chatgpt.config.config import SAVE_FOLDER, budget_manager
-from chatgpt.prompt.custom_console import create_custom_console
+from chatgpt_cli.config.config import SAVE_FOLDER, budget_manager
+from chatgpt_cli.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
 

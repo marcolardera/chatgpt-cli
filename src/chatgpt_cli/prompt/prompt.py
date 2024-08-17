@@ -6,11 +6,11 @@ import subprocess
 import os
 import pyperclip
 from prompt_toolkit.key_binding import KeyBindings
-from chatgpt.prompt.custom_console import create_custom_console
+from chatgpt_cli.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 from prompt_toolkit.formatted_text import HTML
-from chatgpt.config.config import budget_manager
+from chatgpt_cli.config.config import budget_manager
 from catppuccin.extras.pygments import MochaStyle
 from rich.highlighter import Highlighter
 from rich.panel import Panel

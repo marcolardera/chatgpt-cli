@@ -13,14 +13,14 @@ from rich.text import Text
 from rich.traceback import install
 from litellm import check_valid_key
 
-from chatgpt.prompt.prompt import UserAIHighlighter
+from chatgpt_cli.prompt.prompt import UserAIHighlighter
 from rich.table import Table
 from rich.panel import Panel
 import click
 import importlib_metadata
 
 # internal imports
-from chatgpt.config.config import (
+from chatgpt_cli.config.config import (
     load_config,
     get_session_filename,
     get_last_save_file,
@@ -30,21 +30,24 @@ from chatgpt.config.config import (
     check_budget,
     initialize_budget_manager,
 )
-from chatgpt.config.model_handler import (
+from chatgpt_cli.config.model_handler import (
     get_valid_models_and_providers,
     validate_model,
     validate_provider,
 )
-from chatgpt.config.config import get_api_key
-from chatgpt.logs.loguru_init import logger
-from chatgpt.llm_api.llm_handler import chat_with_context, SYSTEM_MARKDOWN_INSTRUCTION
-from chatgpt.llm_api.ollama_handler import (
+from chatgpt_cli.config.config import get_api_key
+from chatgpt_cli.logs.loguru_init import logger
+from chatgpt_cli.llm_api.llm_handler import (
+    chat_with_context,
+    SYSTEM_MARKDOWN_INSTRUCTION,
+)
+from chatgpt_cli.llm_api.ollama_handler import (
     SYSTEM_MARKDOWN_INSTRUCTION_OLLAMA,
     chat_with_ollama,
 )
-from chatgpt.prompt.custom_console import create_custom_console
-from chatgpt.prompt.history import load_history_data, save_history
-from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
+from chatgpt_cli.prompt.custom_console import create_custom_console
+from chatgpt_cli.prompt.history import load_history_data, save_history
+from chatgpt_cli.prompt.prompt import start_prompt, get_usage_stats, print_markdown
 
 __version__ = importlib_metadata.version("chatgpt-cli")
 
