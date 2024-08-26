@@ -1,87 +1,158 @@
+import logging as logger
 import os
+from functools import cached_property
 from pathlib import Path
+from typing import Literal
+
 import yaml
+from litellm import BudgetManager, check_valid_key, model_list, provider_list, models_by_provider
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.key_binding import KeyBindings
+from pydantic import BaseModel, SecretStr, field_validator
+from typing_extensions import Self
 from xdg_base_dirs import xdg_config_home
-from typing import Any, Dict
-from litellm import BudgetManager
+
+from chatgpt_cli.prompt.prompt import console
+
+logger = logger.getLogger(__name__)
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
 HISTORY_FILE = BASE / "history"
-SAVE_FOLDER = BASE / "session-history"
+SESSION_HISTORY_FOLDER = BASE / "session-history"
 USER_COST_FILE = BASE / "user_cost.json"  # Define the path for user cost file
 
-DEFAULT_CONFIG = {
-    "provider": "anthropic",
-    "model": "claude-3-sonnet-20240229",
-    "temperature": 0.7,
-    "markdown": True,
-    "easy_copy": True,
-    "json_mode": False,
-    "use_proxy": False,
-    "proxy": "socks5://127.0.0.1:2080",
-    "storage_format": "markdown",
-    "embedding_model": "text-embedding-ada-002",
-    "embedding_dimension": 1536,
-    "max_context_tokens": 3500,
-    "show_spinner": True,
-    "max_tokens": 1024,
-    "budget_enabled": True,
-    "budget_amount": 10.0,
-    "budget_duration": "monthly",
-    "budget_user": "default_user",
+
+class Budget(BaseModel):
+    enabled: bool = False
+    amount: float = 10.0
+    duration: Literal["daily", "weekly", "monthly", "yearly"] = "monthly"
+    user: str = "default_user"
+
+
+# please add more default models for each provider here
+DEFAULT_MODELS = {
+    "openai": "gpt-4o",
+    "anthropic": "claude-3-haiku",
+    "azure": "Azure-LLM",
 }
 
 
-def load_config(config_file: Path) -> Dict[str, Any]:
-    """Loads the configuration from the config file.
+class Provider(BaseModel):
+    name: str = "openai"
+    api_key: SecretStr
 
-    Args:
-        config_file (Path): The path to the config file.
-
-    Returns:
-        Dict[str, Any]: The configuration dictionary.
-    """
-    if not config_file.exists():
-        config_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_file, "w") as f:
-            yaml.dump(DEFAULT_CONFIG, f)
-        print(f"New config file initialized: {config_file}")
-
-    with open(config_file, "r") as f:
-        config = yaml.safe_load(f)
-
-    # Merge with default config to ensure all keys are present
-    merged_config = {**DEFAULT_CONFIG, **config}
-
-    # Ensure the provider is set
-    if "provider" not in merged_config or not merged_config["provider"]:
-        raise ValueError("Provider is not set in the config file.")
-
-    # Ensure the API key for the selected provider is set
-    provider_key = f"{merged_config['provider']}_api_key"
-    if provider_key not in merged_config or not merged_config[provider_key]:
-        # Check for the API key in environment variables
-        api_key = os.getenv(provider_key.upper())
-        if not api_key:
-            raise ValueError(
-                f"API key for {merged_config['provider']} is not set in the config file or environment variables."
+    @field_validator("name")
+    def validate_provider_name(cls, provider: str) -> str:
+        session = PromptSession(key_bindings=KeyBindings())
+        updated = False
+        while provider not in provider_list:
+            console.print(
+                f"Invalid provider '{provider}'! Please choose from {provider_list}", style="error"
             )
-        merged_config[provider_key] = api_key
-        # Save the updated config back to the file
-        with open(config_file, "w") as f:
-            yaml.dump(merged_config, f)
+            provider = session.prompt("Enter provider: ", completer=WordCompleter(provider_list))
+            updated = True
+        if updated:
+            console.print(
+                f"Provider '{provider}' successfully updated!.", style="success"
+            )
+        return provider
 
-    # Ensure storage_format is set, defaulting to "markdown" if not specified
-    if "storage_format" not in merged_config:
-        merged_config["storage_format"] = "markdown"
+    @field_validator("api_key")
+    def validate_api_key(cls, api_key: SecretStr, values: dict) -> SecretStr:
+        session = PromptSession(key_bindings=KeyBindings())
+        updated = False
+        provider = values['name']
+        while not cls._check_api_key(provider=provider, api_key=api_key.get_secret_value()):
+            console.print(
+                f"Invalid API key for provider '{provider}'!", style="error"
+            )
+            api_key = SecretStr(session.prompt(f"Enter API key for '{provider}': "))
+            updated = True
+        if updated:
+            console.print(
+                f"API key for '{provider}' successfully updated!", style="success"
+            )
+        return api_key
 
-    return merged_config
+    @classmethod
+    def _check_api_key(cls, provider: str, api_key: str) -> bool:
+        return check_valid_key(model=models_by_provider[provider], api_key=api_key)
 
 
-def create_save_folder():
-    """Creates the save folder if it doesn't exist."""
-    os.makedirs(SAVE_FOLDER, exist_ok=True)
+class Config(BaseModel):
+    providers: list[Provider]
+    model: str = "gpt-4o"
+    temperature: float = 0.7
+    markdown: bool = True
+    easy_copy: bool = True
+    json_mode: bool = False
+    use_proxy: bool = False
+    proxy: str | None = None
+    storage_format: str = "markdown"
+    embedding_model: str = "text-embedding-ada-002"
+    embedding_dimension: int = 1536
+    max_context_tokens: int | None = None
+    show_spinner: bool = True
+    max_tokens: int | None = None
+    budget: Budget = Budget()
+
+    @field_validator("model")
+    def validate_model(cls, model: str) -> str:
+        session = PromptSession(key_bindings=KeyBindings())
+        updated = False
+        while model not in model_list:
+            console.print(
+                f"Invalid model '{model}'! Please choose from {model_list}", style="error"
+            )
+            model = session.prompt("Enter model: ", completer=WordCompleter(model_list))
+            updated = True
+        if updated:
+            console.print(
+                f"Model '{model}' successfully updated!.", style="success"
+            )
+        return model
+
+    @classmethod
+    def load(cls, file: Path = CONFIG_FILE) -> Self:
+        if not file.exists():
+            _config = Config(providers=[Provider(api_key=SecretStr("dummy api key"))])
+            file.parent.mkdir(parents=True, exist_ok=True)
+            with open(file, "w") as f:
+                yaml.dump(_config.model_dump(), f)
+            logger.info(f"New config file initialized: {file}")
+            return _config
+        with open(file, "r") as f:
+            return Config(**yaml.safe_load(f))
+
+    def save(self, file: Path = CONFIG_FILE) -> None:
+        with open(file, "w") as f:
+            yaml.dump(self.model_dump(), f)
+
+    @cached_property
+    def budget_manager(self) -> BudgetManager:
+        manager = BudgetManager(project_name="chatgpt-cli")
+        manager.load_data()
+        if self.budget.enabled:
+            if not manager.is_valid_user(self.budget.user):
+                manager.create_budget(
+                    total_budget=self.budget.amount,
+                    user=self.budget.user,
+                    duration=self.budget.duration,
+                )
+        return manager
+
+    def check_budget(self) -> bool:
+        if self.budget.enabled and self.budget.user:
+            current_cost = self.budget_manager.get_current_cost(self.budget.user)
+            total_budget = self.budget_manager.get_total_budget(self.budget.user)
+            return current_cost <= total_budget
+        return True
+
+    @property
+    def compiled_proxy(self) -> dict | None:
+        return {"http": self.proxy, "https": self.proxy} if self.proxy else None
 
 
 def get_session_filename() -> str:
@@ -95,7 +166,7 @@ def get_session_filename() -> str:
     now = datetime.now()
     date_str = now.strftime("%d-%m-%Y")
 
-    existing_files = [f for f in os.listdir(SAVE_FOLDER) if f.startswith(date_str)]
+    existing_files = [f for f in os.listdir(SESSION_HISTORY_FOLDER) if f.startswith(date_str)]
 
     if existing_files:
         max_index = max([int(f.split("_")[1].split(".")[0]) for f in existing_files])
@@ -112,90 +183,7 @@ def get_last_save_file() -> str | None:
     Returns:
         str | None: The filename of the last saved session, or None if no session has been saved.
     """
-    files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".md")]
+    files = [f for f in os.listdir(SESSION_HISTORY_FOLDER) if f.endswith(".md")]
     if files:
-        return max(files, key=lambda x: os.path.getctime(os.path.join(SAVE_FOLDER, x)))
+        return max(files, key=lambda x: os.path.getctime(os.path.join(SESSION_HISTORY_FOLDER, x)))
     return None
-
-
-def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
-    """Initializes the budget manager with the specified configuration.
-
-    Args:
-        config (Dict[str, Any]): The configuration dictionary.
-
-    Returns:
-        BudgetManager: The initialized budget manager.
-    """
-    # Ensure the BASE directory exists
-    BASE.mkdir(parents=True, exist_ok=True)
-
-    # Set the working directory to the BASE
-    os.chdir(BASE)
-
-    budget_manager = BudgetManager(project_name="chatgpt-cli")
-    budget_manager.load_data()  # Load the budget data from the previous session
-    if config.get("budget_enabled", False) and config.get("budget_user"):
-        if not budget_manager.is_valid_user(config["budget_user"]):
-            budget_manager.create_budget(
-                total_budget=config["budget_amount"],
-                user=config["budget_user"],
-                duration=config["budget_duration"],
-            )
-    return budget_manager
-
-
-def check_budget(config: Dict[str, Any], budget_manager: BudgetManager) -> bool:
-    """Checks if the current cost is within the budget limit.
-
-    Args:
-        config (Dict[str, Any]): The configuration dictionary.
-        budget_manager (BudgetManager): The budget manager.
-
-    Returns:
-        bool: True if the current cost is within the budget limit, False otherwise.
-    """
-    if config.get("budget_enabled", False) and config.get("budget_user"):
-        user = config["budget_user"]
-        current_cost = budget_manager.get_current_cost(user)
-        total_budget = budget_manager.get_total_budget(user)
-        return current_cost <= total_budget
-    return True
-
-
-def get_proxy(config: Dict[str, Any]):
-    """Gets the proxy configuration from the config.
-
-    Args:
-        config (Dict[str, Any]): The configuration dictionary.
-
-    Returns:
-        Dict[str, str] | None: The proxy configuration, or None if no proxy is configured.
-    """
-    return (
-        {"http": config["proxy"], "https": config["proxy"]}
-        if config["use_proxy"]
-        else None
-    )
-
-
-def get_api_key(config: Dict[str, Any]) -> str:
-    """Gets the API key for the specified provider.
-
-    Args:
-        config (Dict[str, Any]): The configuration dictionary.
-
-    Returns:
-        str: The API key for the specified provider.
-    """
-    provider = config["provider"]
-    key_name = f"{provider}_api_key"
-    api_key = config.get(key_name)
-    if not api_key:
-        raise ValueError(f"API key for {provider} is not set in the config file.")
-    return api_key
-
-
-# Initialize configuration and budget manager
-config = load_config(CONFIG_FILE)
-budget_manager = initialize_budget_manager(config)

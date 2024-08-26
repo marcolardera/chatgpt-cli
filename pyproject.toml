@@ -42,7 +42,7 @@ dependencies = [
     "jiter==0.5.0",
     "jsonschema==4.23.0",
     "jsonschema-specifications==2023.12.1",
-    "litellm==1.43.9",  # Updated version
+    "litellm>=1.44.5",  # Updated version
     "loguru==0.7.2",
     "markdown-it-py==3.0.0",
     "markupsafe==2.1.5",
@@ -53,13 +53,13 @@ dependencies = [
     "pathspec==0.12.1",
     "platformdirs==4.2.2",
     "prompt-toolkit==3.0.47",
-    "pydantic==2.8.2",
+    "pydantic>=2.8.2",
     "pydantic-core==2.20.1",
     "pygments==2.18.0",
     "pyperclip==1.9.0",
     "pysocks==1.7.1",
     "python-dotenv==1.0.1",
-    "pyyaml==6.0.2",
+    "pyyaml>=6.0.2",
     "referencing==0.35.1",
     "regex==2024.7.24",
     "requests==2.32.3",
@@ -85,6 +85,7 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.pdm]
 [project.scripts]
 chatgpt-cli = "chatgpt_cli.chatgpt_cli:app"
 

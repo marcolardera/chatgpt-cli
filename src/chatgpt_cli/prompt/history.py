@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any, List, Tuple, Optional
 import os
 from datetime import datetime
-from chatgpt_cli.config.config import SAVE_FOLDER, budget_manager
+from chatgpt_cli.config.config import SESSION_HISTORY_FOLDER, budget_manager
 from chatgpt_cli.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
@@ -96,7 +96,7 @@ def save_history(
         The name of the saved file.
     """
 
-    filepath = os.path.join(SAVE_FOLDER, save_file)
+    filepath = os.path.join(SESSION_HISTORY_FOLDER, save_file)
 
     # Ensure the directory exists
     os.makedirs(os.path.dirname(filepath), exist_ok=True)

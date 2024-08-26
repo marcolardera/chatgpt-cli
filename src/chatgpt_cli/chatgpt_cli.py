@@ -25,7 +25,7 @@ from chatgpt_cli.config.config import (
     get_session_filename,
     get_last_save_file,
     CONFIG_FILE,
-    SAVE_FOLDER,
+    SESSION_HISTORY_FOLDER,
     get_proxy,
     check_budget,
     initialize_budget_manager,
@@ -216,7 +216,7 @@ def main(
         if restore_file:
             try:
                 history_data = load_history_data(
-                    os.path.join(SAVE_FOLDER, restore_file)
+                    os.path.join(SESSION_HISTORY_FOLDER, restore_file)
                 )
                 messages = history_data["messages"]
                 prompt_tokens = history_data.get("prompt_tokens", 0)

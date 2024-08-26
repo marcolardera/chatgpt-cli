@@ -174,3 +174,6 @@ session-history/
 .idea/
 .vscode/settings.json
 .aider*
+
+# pdm
+.pdm-python
