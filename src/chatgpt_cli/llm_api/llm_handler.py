@@ -1,23 +1,52 @@
+from copy import deepcopy
 from typing import Dict, Any, List, Optional, Tuple
-from chatgpt_cli.prompt.prompt import console
-from prompt_toolkit import PromptSession
-from chatgpt_cli.config.config import get_api_key, budget_manager
-from litellm.budget_manager import BudgetManager
+
 import litellm
+from litellm import anthropic_models
+from litellm.budget_manager import BudgetManager
+from pydantic import BaseModel, SecretStr, Field
 from rich.panel import Panel
 from rich.text import Text
 
-SYSTEM_MARKDOWN_INSTRUCTION = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+from chatgpt_cli.config import Config
+from chatgpt_cli.prompt.prompt import console
+
+SYSTEM_PROMPT = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+
 
 # os.environ["LITELLM_LOG"] = "DEBUG"
 
+class CompletionArgs(BaseModel):
+    model: str
+    messages: List[Dict[str, str]]
+    api_key: SecretStr
+    temperature: float = Field(..., ge=0.0, le=1.0)
+
+
+def normalize_role(role: str):
+    if role not in ["system", "assistant", "user", "function", "tool"]:
+        return "user"
+    return role
+
+
+def normalize_messages(messages_: list[dict[str, str]], model: str) -> list[dict[str, str]]:
+    if model in anthropic_models:
+        for message in messages_:
+            if message["role"] == "assistant" and "prefix" in message:
+                message["content"] = f"{message['content']} {message['prefix']}"
+                del message["prefix"]
+
+    # Ensure all messages have valid roles
+    for message in messages_:
+        message["role"] = normalize_role(message["role"])
+
+    return messages_
+
 
 def chat_with_context(
-    config: Dict[str, Any],
-    messages: List[Dict[str, str]],
-    session: PromptSession,
-    proxy: Optional[Dict[str, str]],
-    show_spinner: bool,
+        *,
+        messages: List[Dict[str, str]],
+        config: Config = Config.load(),
 ) -> Optional[Tuple[str, Dict[str, Any]]]:
     """
     Sends a message to the LLM with the given context and returns the response.
@@ -25,63 +54,32 @@ def chat_with_context(
     Args:
         config: The configuration dictionary.
         messages: The list of messages to send to the LLM.
-        session: The prompt session.
-        proxy: The proxy configuration.
-        show_spinner: Whether to show a spinner while waiting for the response.
 
     Returns:
         A tuple containing the response content and the response object, or None if an error occurred.
     """
-    user = config["budget_user"]
 
     try:
-        api_messages = messages.copy()
-        api_key = get_api_key(config)
+        _messages = normalize_messages(deepcopy(messages))
+        api_key = config.suitable_provider.api_key
+        completion_args = CompletionArgs(model=config.model, messages=_messages, api_key=api_key,
+                                         temperature=config.temperature)
 
-        # Handle Anthropic models
-        if config["provider"] == "anthropic":
-            for message in api_messages:
-                if message["role"] == "assistant" and "prefix" in message:
-                    message["content"] = f"{message['content']} {message['prefix']}"
-                    del message["prefix"]
-
-        # Ensure all messages have valid roles
-        valid_roles = ["system", "assistant", "user", "function", "tool"]
-        for message in api_messages:
-            if message["role"] not in valid_roles:
-                message["role"] = "user"  # Default to user if role is invalid
-
-        completion_kwargs = {
-            "model": config["model"],
-            "messages": api_messages,
-            "api_key": api_key,
-        }
-
-        if show_spinner:
+        if config.show_spinner:
             with console.status(
-                "[bold #a6e3a1]Waiting for response...",
-                spinner="bouncingBar",  # Catppuccin Green
+                    "[bold #a6e3a1]Waiting for response...",
+                    spinner="bouncingBar",  # Catppuccin Green
             ) as status:
-                response = litellm.completion(**completion_kwargs)
+                response = litellm.completion(**completion_args.model_dump())
                 status.update(
                     status="[bold #a6e3a1]Response received!"
                 )  # Catppuccin Green
-
-            response_content, response_obj = handle_response(
-                response, budget_manager, config, user
-            )
         else:
-            response = litellm.completion(**completion_kwargs)
-            response_content, response_obj = handle_response(
-                response, budget_manager, config, user
-            )
+            response = litellm.completion(**completion_args.model_dump())
+        content, payload = handle_response(response, config.budget_manager, config.budget.user)
 
-        if response_content is None:
+        if content is None:
             return None
-
-        # Update cost and save data
-        budget_manager.update_cost(user=user, completion_obj=response)
-        budget_manager.save_data()
 
     except KeyboardInterrupt:
         return None
@@ -95,11 +93,13 @@ def chat_with_context(
             )
         )
         return None
-    return response_content, response_obj
+    finally:
+        config.save()
+    return content, payload
 
 
 def handle_response(
-    response: Any, budget_manager: BudgetManager, config: Dict[str, Any], user: str
+        response: Any, budget_manager: BudgetManager, user: str
 ) -> Optional[Tuple[str, Dict[str, Any]]]:
     """
     Handles the response from the LLM and updates the budget.
@@ -107,7 +107,6 @@ def handle_response(
     Args:
         response: The response object from the LLM.
         budget_manager: The budget manager.
-        config: The configuration dictionary.
         user: The user's name.
 
     Returns:
@@ -115,6 +114,7 @@ def handle_response(
     """
     try:
         budget_manager.update_cost(user=user, completion_obj=response)
+        budget_manager.save_data()
     except Exception as budget_error:
         console.print(
             Panel(
@@ -125,30 +125,7 @@ def handle_response(
             )
         )
 
-    if hasattr(response, "choices") and len(response.choices) > 0:
-        response_content = response.choices[0].message.content
-        usage = response.usage
-        response_obj = {
-            "choices": [
-                {
-                    "message": {
-                        "content": choice.message.content,
-                        "role": choice.message.role,
-                    },
-                    "finish_reason": choice.finish_reason,
-                    "index": choice.index,
-                }
-                for choice in response.choices
-            ],
-            "usage": {
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
-            },
-            "model": response.model,
-        }
-        return response_content, response_obj
-    else:
+    if not (hasattr(response, "choices") and len(response.choices) > 0):
         console.print(
             Panel(
                 Text(f"Unexpected response format: {response!r}", style="white"),
@@ -157,4 +134,27 @@ def handle_response(
                 expand=False,
             )
         )
-        return None, None
+        return
+
+    content = response.choices[0].message.content
+    usage = response.usage
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": choice.message.content,
+                    "role": choice.message.role,
+                },
+                "finish_reason": choice.finish_reason,
+                "index": choice.index,
+            }
+            for choice in response.choices
+        ],
+        "usage": {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+        },
+        "model": response.model,
+    }
+    return content, payload

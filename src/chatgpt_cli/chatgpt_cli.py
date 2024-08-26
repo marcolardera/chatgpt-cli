@@ -39,7 +39,7 @@ from chatgpt_cli.config.config import get_api_key
 from chatgpt_cli.logs.loguru_init import logger
 from chatgpt_cli.llm_api.llm_handler import (
     chat_with_context,
-    SYSTEM_MARKDOWN_INSTRUCTION,
+    SYSTEM_PROMPT,
 )
 from chatgpt_cli.llm_api.ollama_handler import (
     SYSTEM_MARKDOWN_INSTRUCTION_OLLAMA,
@@ -64,19 +64,6 @@ messages: List[Dict[str, Union[str, int]]] = []
 app = typer.Typer(add_completion=False)
 
 
-class ModelCompleter(Completer):
-    """Completer for available models."""
-
-    def __init__(self, models: List[str]):
-        """Initialize the ModelCompleter with a list of models."""
-        self.models = models
-
-    def get_completions(self, document, complete_event):
-        """Get completions for the given document."""
-        word = document.get_word_before_cursor()
-        for model in self.models:
-            if model.startswith(word):
-                yield Completion(model, start_position=-len(word))
 
 
 class PathCompleter(Completer):
@@ -257,7 +244,7 @@ def main(
     highlighter = UserAIHighlighter()
 
     # Display system instructions
-    messages.append({"role": "system", "content": SYSTEM_MARKDOWN_INSTRUCTION})
+    messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
     while True:
         try:
@@ -281,9 +268,6 @@ def main(
                 result = chat_with_context(
                     config=config,
                     messages=messages,
-                    session=session,
-                    proxy=proxy,
-                    show_spinner=config["show_spinner"],
                 )
 
                 if result:

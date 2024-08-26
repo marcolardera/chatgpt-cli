@@ -154,6 +154,13 @@ class Config(BaseModel):
     def compiled_proxy(self) -> dict | None:
         return {"http": self.proxy, "https": self.proxy} if self.proxy else None
 
+    @property
+    def suitable_provider(self) -> Provider:
+        for p in self.providers:
+            if p.name == get_provider_by_model(self.model):
+                return p
+        console.stderr(f"Provider for model '{self.model}' is missing!")
+
 
 def get_session_filename() -> str:
     """Generates a unique filename for the current session.
@@ -186,4 +193,11 @@ def get_last_save_file() -> str | None:
     files = [f for f in os.listdir(SESSION_HISTORY_FOLDER) if f.endswith(".md")]
     if files:
         return max(files, key=lambda x: os.path.getctime(os.path.join(SESSION_HISTORY_FOLDER, x)))
+    return None
+
+
+def get_provider_by_model(model: str) -> str | None:
+    for _model, provider in models_by_provider.items():
+        if _model == model:
+            return provider
     return None
