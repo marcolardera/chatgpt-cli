@@ -10,7 +10,6 @@ from chatgpt_cli.prompt.custom_console import create_custom_console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 from prompt_toolkit.formatted_text import HTML
-from chatgpt_cli.config.config import budget_manager
 from catppuccin.extras.pygments import MochaStyle
 from rich.highlighter import Highlighter
 from rich.panel import Panel

@@ -14,6 +14,7 @@ from typing_extensions import Self
 from xdg_base_dirs import xdg_config_home
 
 from chatgpt_cli.prompt.prompt import console
+from chatgpt_cli.str_enum import StrEnum
 
 logger = logger.getLogger(__name__)
 
@@ -30,13 +31,13 @@ class Budget(BaseModel):
     duration: Literal["daily", "weekly", "monthly", "yearly"] = "monthly"
     user: str = "default_user"
 
+    @property
+    def is_on(self) -> bool:
+        return self.enabled and self.user
 
-# please add more default models for each provider here
-DEFAULT_MODELS = {
-    "openai": "gpt-4o",
-    "anthropic": "claude-3-haiku",
-    "azure": "Azure-LLM",
-}
+class StorageFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
 
 
 class Provider(BaseModel):
@@ -90,7 +91,7 @@ class Config(BaseModel):
     json_mode: bool = False
     use_proxy: bool = False
     proxy: str | None = None
-    storage_format: str = "markdown"
+    storage_format: StorageFormat = StorageFormat.MARKDOWN
     embedding_model: str = "text-embedding-ada-002"
     embedding_dimension: int = 1536
     max_context_tokens: int | None = None

@@ -1,178 +1,125 @@
 import json
-from typing import Dict, Any, List, Tuple, Optional
-import os
 from datetime import datetime
-from chatgpt_cli.config.config import SESSION_HISTORY_FOLDER, budget_manager
+from pathlib import Path
+from typing import Dict, List
+
+from pydantic import BaseModel, computed_field
+from typing_extensions import Self
+
+from chatgpt_cli.config import SESSION_HISTORY_FOLDER, Config, StorageFormat
 from chatgpt_cli.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
 
 
-def load_history_data(history_file: str) -> Dict[str, Any]:
-    """
-    Loads history data from a file.
-
-    Args:
-        history_file: The path to the history file.
-
-    Returns:
-        A dictionary containing the history data.
-    """
-    if not os.path.dirname(history_file):
-        history_file = os.path.join(os.getcwd(), history_file)
-
-    os.makedirs(os.path.dirname(history_file), exist_ok=True)
-
-    if not os.path.exists(history_file):
-        return []
-
-    if history_file.endswith(".json"):
-        with open(history_file, encoding="utf-8") as file:
-            return json.load(file)
-    else:  # markdown
-        with open(history_file, encoding="utf-8") as file:
-            content = file.read()
-
-        lines = content.split("\n")
-        model = ""
-        messages: List[Dict[str, str]] = []
-        current_role = ""
-        current_content: List[str] = []
-
-        for line in lines:
-            if line.startswith("Model: "):
-                model = line.split(": ", 1)[1]
-            elif line.startswith("### "):
-                if current_role:
-                    messages.append(
-                        {
-                            "role": current_role.lower(),
-                            "content": "\n".join(current_content).strip(),
-                        }
-                    )
-                    current_content = []
-                current_role = line[4:].strip()
-            elif current_role and line.strip():
-                current_content.append(line)
-
-        if current_role:
-            messages.append(
-                {
-                    "role": current_role.lower(),
-                    "content": "\n".join(current_content).strip(),
-                }
-            )
-
-        return {
-            "model": model,
-            "messages": messages,
-            "prompt_tokens": sum(
-                len(m["content"].split()) for m in messages if m["role"] == "user"
-            ),
-            "completion_tokens": sum(
-                len(m["content"].split()) for m in messages if m["role"] == "assistant"
-            ),
-        }
+class BudgetInfo(BaseModel):
+    current_cost: float
+    total_budget: float
 
 
-def save_history(
-    config: Dict[str, Any],
-    model: str,
-    messages: List[Dict[str, str]],
-    save_file: str,
-    storage_format: str = "markdown",
-) -> str:
-    """
-    Saves the history data to a file.
+class History(BaseModel):
+    model: str = ""
+    messages: List[Dict[str, str]] = []
+    _config: Config = Config.load()
 
-    Args:
-        config: The configuration dictionary.
-        model: The model used for the conversation.
-        messages: The list of messages in the conversation.
-        save_file: The name of the file to save the history to.
-        storage_format: The format to save the history in (json or markdown).
+    def save(self, save_file: str):
+        SESSION_HISTORY_FOLDER.parent.mkdir(parents=True, exist_ok=True)
+        path = SESSION_HISTORY_FOLDER / save_file
+        match self._config.storage_format:
+            case StorageFormat.JSON:
+                self._save_json(path)
+            case StorageFormat.MARKDOWN:
+                self._save_markdown(path)
+            case _:
+                raise NotImplementedError(f"Storage format {self._config.storage_format} is not supported.")
 
-    Returns:
-        The name of the saved file.
-    """
+    @classmethod
+    def load(cls, file: str) -> Self | None:
+        path = SESSION_HISTORY_FOLDER / file
+        if not path.exists():
+            console.print("No history found.")
+            return
+        match Config.load().storage_format:
+            case StorageFormat.JSON:
+                return cls._load_json(path)
+            case StorageFormat.MARKDOWN:
+                return cls._load_markdown(path)
+            case _:
+                raise NotImplementedError(f"Storage format {Config.load().storage_format} is not supported.")
 
-    filepath = os.path.join(SESSION_HISTORY_FOLDER, save_file)
+    def _save_json(self, path: Path) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
 
-    # Ensure the directory exists
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    @classmethod
+    def _load_json(cls, path: Path) -> Self:
+        with open(path, encoding="utf-8") as f:
+            return History.model_validate(json.load(f))
 
-    budget_info = {}
-    if config.get("budget_enabled", False) and config.get("budget_user"):
-        budget_info = {
-            "current_cost": budget_manager.get_current_cost(config["budget_user"]),
-            "total_budget": budget_manager.get_total_budget(config["budget_user"]),
-        }
-
-    if storage_format.lower() == "json":
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "model": model,
-                    "messages": messages,
-                    "budget_info": budget_info,
-                },
-                f,
-                indent=4,
-                ensure_ascii=False,
-            )
-    else:  # markdown
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(
-                f"# ChatGPT Session - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-            )
-            f.write(f"Model: {model}\n\n")
+    def _save_markdown(self, path: Path) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"# ChatGPT Session - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write(f"Model: {self.model}\n\n")
             f.write("## Conversation\n\n")
-            for message in messages:
+            for message in self.messages:
                 f.write(f"### {message['role'].capitalize()}\n\n")
                 f.write(f"{message['content']}\n\n")
-            if budget_info:
+            if self.budget_info:
                 f.write("## Budget Information\n\n")
-                f.write(f"Current Cost: ${budget_info['current_cost']:.6f}\n")
-                f.write(f"Total Budget: ${budget_info['total_budget']:.2f}\n")
+                f.write(f"Current Cost: ${self.budget_info.current_cost:.6f}\n")
+                f.write(f"Total Budget: ${self.budget_info.total_budget:.2f}\n")
 
-    return save_file
+    @classmethod
+    def _load_markdown(cls, path: Path) -> Self:
+        with open(path, encoding="utf-8") as f:
+            history = History()
+            current_role = ""
+            current_content = []
+            for line in f.readlines():
+                if line.startswith("Model: "):
+                    history.model = line.split(": ", 1)[1]
+                elif line.startswith("### "):
+                    if current_role:
+                        history.messages.append(
+                            {
+                                "role": current_role.lower(),
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
+                        current_content = []
+                    current_role = line[4:].strip()
+                elif current_role and line.strip():
+                    current_content.append(line)
+        return history
 
+    @computed_field
+    @property
+    def budget_info(self) -> BudgetInfo | None:
+        if self._config.budget.enabled and self._budget.user:
+            return BudgetInfo(
+                current_cost=self._config.budget_manager.get_current_cost(self._config.budget.user),
+                total_budget=self._config.budget_manager.get_total_budget(self._config.budget.user),
+            )
+        return None
 
-def calculate_tokens_and_cost(
-    messages: List[Dict[str, str]], model: str, user: Optional[str] = None
-) -> Tuple[int, int, float]:
-    """
-    Calculates the number of tokens and cost for a conversation.
+    @property
+    def prompt_tokens(self) -> int:
+        return sum(
+            len(m["content"].split()) for m in self.messages if m["role"] == "user"
+        )
 
-    Args:
-        messages: The list of messages in the conversation.
-        model: The model used for the conversation.
-        user: The user who initiated the conversation (optional).
+    @property
+    def completion_tokens(self) -> int:
+        return sum(
+            len(m["content"].split()) for m in self.messages if m["role"] == "assistant"
+        )
 
-    Returns:
-        A tuple containing the number of prompt tokens, completion tokens, and total cost.
-    """
-    prompt_tokens = sum(
-        len(m["content"].split()) for m in messages if m["role"] == "user"
-    )
-    completion_tokens = sum(
-        len(m["content"].split()) for m in messages if m["role"] == "assistant"
-    )
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
 
-    # Create a temporary ModelResponse object
-    temp_response = {
-        "model": model,
-        "usage": {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-        },
-    }
-
-    # Update cost using the temporary response
-    total_cost = 0
-    if user:
-        budget_manager.update_cost(user=user, completion_obj=temp_response)
-        total_cost = budget_manager.get_current_cost(user)
-
-    return prompt_tokens, completion_tokens, total_cost
+    @property
+    def total_cost(self) -> float:
+        if self._config.budget.is_on:
+            return self._config.budget_manager.get_current_cost(self._config.budget.user)
+        return 0.0

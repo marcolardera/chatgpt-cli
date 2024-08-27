@@ -44,7 +44,6 @@ def normalize_messages(messages_: list[dict[str, str]], model: str) -> list[dict
 
 
 def chat_with_context(
-        *,
         messages: List[Dict[str, str]],
         config: Config = Config.load(),
 ) -> Optional[Tuple[str, Dict[str, Any]]]:
