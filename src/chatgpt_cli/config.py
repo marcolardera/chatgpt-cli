@@ -91,6 +91,7 @@ class Config(BaseModel):
     json_mode: bool = False
     use_proxy: bool = False
     proxy: str | None = None
+    multiline: bool = False
     storage_format: StorageFormat = StorageFormat.MARKDOWN
     embedding_model: str = "text-embedding-ada-002"
     embedding_dimension: int = 1536

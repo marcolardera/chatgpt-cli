@@ -1,20 +1,24 @@
-from prompt_toolkit import PromptSession
-from typing import Dict, Any, List, Optional, Tuple
-import re
-import tempfile
-import subprocess
 import os
+import re
+import subprocess
+import tempfile
+from typing import Dict, Any, List, Optional, Tuple
+
 import pyperclip
-from prompt_toolkit.key_binding import KeyBindings
-from chatgpt_cli.prompt.custom_console import create_custom_console
-from rich.markdown import Markdown
-from rich.syntax import Syntax
-from prompt_toolkit.formatted_text import HTML
 from catppuccin.extras.pygments import MochaStyle
-from rich.highlighter import Highlighter
-from rich.panel import Panel
+from litellm import BudgetManager
+from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.key_binding import KeyBindings
+from rich.highlighter import Highlighter
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.syntax import Syntax
 from rich.text import Text
+
+from chatgpt_cli.config import Config
+from chatgpt_cli.prompt.custom_console import create_custom_console
 
 console = create_custom_console()
 
@@ -33,7 +37,7 @@ def _(event: Any) -> None:
     open_editor_with_last_response(event.app.state["messages"])
 
 
-def create_keybindings(multiline):
+def create_keybindings(multiline: bool):
     kb = KeyBindings()
 
     @kb.add("escape", "enter", filter=Condition(lambda: multiline))
@@ -48,12 +52,12 @@ def create_keybindings(multiline):
 
 
 def start_prompt(
-    session: PromptSession[Any],
-    config: Dict[str, Any],
-    messages: List[Dict[str, str]],
-    prompt_tokens: int,
-    completion_tokens: int,
-    code_blocks: Dict[str, Dict[str, str]] = {},
+        session: PromptSession[Any],
+        config: Config,
+        messages: List[Dict[str, str]],
+        prompt_tokens: int,
+        completion_tokens: int,
+        code_blocks: Dict[str, Dict[str, str]] = None,
 ) -> Tuple[Dict[str, str], Dict[str, Dict[str, str]]]:
     """Starts the prompt loop and handles user input.
 
@@ -69,20 +73,23 @@ def start_prompt(
         A tuple containing the user's message and the updated code blocks.
     """
     # Store config, messages, budget_manager, and code_blocks in the app state for access in key bindings
+
+    code_blocks = {} if code_blocks is None else code_blocks
+
     session.app.state = {
         "config": config,
         "messages": messages,
-        "budget_manager": budget_manager,
+        "budget_manager": config.budget_manager,
         "code_blocks": code_blocks,
     }
 
     while True:
         current_cost = 0
-        if config.get("budget_enabled") and config.get("budget_user"):
-            current_cost = budget_manager.get_current_cost(config["budget_user"])
+        if config.budget.is_on:
+            current_cost = config.budget_manager.get_current_cost(config["budget_user"])
 
-        provider = config.get("provider", "Unknown")
-        model = config.get("model", "Unknown")
+        provider = config.suitable_provider
+        model = config.model
 
         # Create a spacer with Catppuccin Green dashes
         spacer = Text("─" * 35, style="#a6e3a1")  # Catppuccin Green
@@ -97,15 +104,14 @@ def start_prompt(
 
         # Prepare the prompt text with tokens and cost
         prompt_text = f"<style fg='#89b4fa'>[Tokens: {prompt_tokens + completion_tokens}]</style> "  # Catppuccin Blue
-        if config.get("budget_enabled") and config.get("budget_user"):
+        if config.budget.is_on:
             prompt_text += f"<style fg='#f38ba8'>[Cost: ${current_cost:.6f}]</style>"
         prompt_text += "\n>>> "
 
-        kb = create_keybindings(config.get("multiline", False))
         message = session.prompt(
             HTML(prompt_text),
-            multiline=config.get("multiline", False),
-            key_bindings=kb,
+            multiline=config.multiline,
+            key_bindings=create_keybindings(config.multiline),
         )
 
         # Handle special commands
@@ -124,9 +130,9 @@ def start_prompt(
 
 
 def handle_copy_command(
-    message: str,
-    config: Dict[str, Any],
-    code_blocks: Dict[str, Dict[str, str]],
+        message: str,
+        config: Config,
+        code_blocks: Dict[str, Dict[str, str]],
 ) -> None:
     """Handles the /copy command to copy code blocks to the clipboard.
 
@@ -135,7 +141,7 @@ def handle_copy_command(
         config: The configuration dictionary.
         code_blocks: A dictionary of code blocks extracted from the LLM response.
     """
-    if config["easy_copy"]:
+    if config.easy_copy:
         match = re.search(r"^/c(?:opy)?\s*(\d+)?", message.lower())
         if match:
             block_id = match.group(1)
@@ -149,7 +155,8 @@ def handle_copy_command(
                         )
                     except pyperclip.PyperclipException:
                         console.print(
-                            "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
+                            "Unable to perform the copy operation. "
+                            "Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error",
                             style="#f38ba8",  # Catppuccin Red
                         )
                 else:
@@ -293,7 +300,7 @@ def open_editor_with_content(content: str):
     console.print(Markdown(selected_content))
 
 
-def open_editor_with_last_response(messages: List[Dict[str, str]]) -> Optional[str]:
+def open_editor_with_last_response(messages: List[Dict[str, str]]) -> None:
     """Opens the default editor with the last LLM response.
 
     Args:
@@ -350,22 +357,6 @@ def extract_code_blocks(content: str, code_blocks: Dict[str, Dict[str, str]]):
     return code_blocks
 
 
-# def print_code_block_summary(code_blocks: Dict[str, Dict[str, str]]):
-#     """Prints a summary of the extracted code blocks.
-
-#     Args:
-#         code_blocks: A dictionary of code blocks extracted from the LLM response.
-#     """
-#     if code_blocks:
-#         console.print("\nCode blocks:", style="bold")
-#         for block_id, block_info in code_blocks.items():
-#             title = f" - {block_info['title']}" if block_info["title"] else ""
-#             console.print(
-#                 f"  [{block_id}] {block_info['language']}{title} "
-#                 f"({len(block_info['content'].split('\n'))} lines)"
-#             )
-
-
 def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
     """
     Add a system message to instruct the model to use Markdown formatting.
@@ -373,12 +364,13 @@ def add_markdown_system_message(messages: List[Dict[str, str]]) -> None:
     messages.append(
         {
             "role": "system",
-            "content": "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax.",
+            "content": "Always use code blocks with the appropriate language tags. "
+                       "If asked for a table always format it using Markdown syntax.",
         }
     )
 
 
-def get_usage_stats():
+def get_usage_stats(budget_manager: BudgetManager):
     """Retrieves usage statistics for all users.
 
     Returns:
