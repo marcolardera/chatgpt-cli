@@ -5,14 +5,37 @@ from omegaconf import DictConfig, OmegaConf
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.key_binding import KeyBindings
-from pydantic import field_validator
+from pydantic import field_validator, AfterValidator
 from pydantic.dataclasses import dataclass
+from typing_extensions import Annotated
 from typing_extensions import Self
 
 from chatgpt_cli.budget import Budget
 from chatgpt_cli.constants import CONFIG_FILE
-from chatgpt_cli.prompt import console
 from chatgpt_cli.str_enum import StrEnum
+from chatgpt_cli.ui import console
+from chatgpt_cli.ui.console import ConsoleStyle
+
+__all__ = ["Config", "Provider", "StorageFormat", "Model"]
+
+
+def validate_model(model: str) -> str:
+    """If model not in LLMLite model list, prompt users to input a model."""
+    session = PromptSession(key_bindings=KeyBindings())
+    updated = False
+    while model not in model_list:
+        console.print(
+            f"Invalid model '{model}'! Please choose from {model_list}",
+            style="error",
+        )
+        model = session.prompt("Enter model: ", completer=WordCompleter(model_list))
+        updated = True
+    if updated:
+        console.print(f"Model '{model}' successfully updated!.", style="success")
+    return model
+
+
+Model = Annotated[str, AfterValidator(validate_model)]
 
 
 class StorageFormat(StrEnum):
@@ -60,10 +83,20 @@ class Provider:
 
 
 @dataclass
+class HistoryConf:
+    save: str | bool = field(default=False, metadata={
+        "description": "A file name or True. If a file name, will save history under HISTORY_DIR under that file name. "
+                       "If True, will generate a new file name based on current timestamp."
+                       "If False, history will be disabled."})
+    load_from: str | None = field(default=None,
+                                  metadata={"description": "A file name under HISTORY_DIR to load history from."})
+
+
+@dataclass
 class Config:
     providers: list[Provider]
-    model: str = "gpt-4o"
-    temperature: float = 0.7
+    model: Model = "gpt-4o"
+    temperature: float = 0.2
     markdown: bool = True
     easy_copy: bool = True
     json_mode: bool = False
@@ -76,21 +109,7 @@ class Config:
     show_spinner: bool = True
     max_tokens: int | None = None
     budget: Budget = field(default_factory=Budget)
-
-    @field_validator("model")
-    def validate_model(cls, model: str) -> str:
-        session = PromptSession(key_bindings=KeyBindings())
-        updated = False
-        while model not in model_list:
-            console.print(
-                f"Invalid model '{model}'! Please choose from {model_list}",
-                style="error",
-            )
-            model = session.prompt("Enter model: ", completer=WordCompleter(model_list))
-            updated = True
-        if updated:
-            console.print(f"Model '{model}' successfully updated!.", style="success")
-        return model
+    history: HistoryConf = field(default_factory=HistoryConf)
 
     @property
     def suitable_provider(self) -> Provider:
@@ -105,7 +124,7 @@ class Config:
 
     @classmethod
     def from_omega_conf(cls, cfg: DictConfig) -> Self:
-        return Config(**OmegaConf.to_object(cfg))
+        return OmegaConf.to_object(cfg)
 
     def get_api_key(self) -> str:
         return self.suitable_provider.api_key
@@ -113,6 +132,17 @@ class Config:
     def save(self) -> None:
         self.budget.save()
         OmegaConf.save(self, CONFIG_FILE)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_val:
+            console.print(f"An error occurred: {exc_val}", style=ConsoleStyle.error)
+        try:
+            self.save()
+        except Exception as e:
+            console.print(f"An error occurred: {e}", style=ConsoleStyle.error)
 
 
 def _add_or_update_provider(existing_providers: list[Provider], provider: Provider):

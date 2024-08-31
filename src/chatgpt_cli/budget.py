@@ -6,8 +6,12 @@ from litellm.types.utils import ModelResponse
 from rich.panel import Panel
 from rich.table import Table
 
-from chatgpt_cli.prompt import console
+from chatgpt_cli.constants import BASE
 from chatgpt_cli.str_enum import StrEnum
+from chatgpt_cli.ui import console
+
+# TODO: save cost here
+BUDGET_FILE = BASE / "user_cost.json"
 
 
 class Duration(StrEnum):
@@ -51,25 +55,18 @@ class Budget:
 
     @property
     def remaining_budget(self) -> float:
-        return self.manager.get_total_budget(self.user) - self.manager.get_current_cost(
-            self.user
-        )
+        return self.manager.get_total_budget(self.user) - self.manager.get_current_cost(self.user)
 
     def update_cost(self, completion_obj: ModelResponse | None) -> None:
-        if self.is_on:
-            self.manager.update_cost(completion_obj=completion_obj, user=self.user)
+        self.manager.update_cost(completion_obj=completion_obj, user=self.user)
 
     def display_expense(self) -> None:
         # Create a table for expense information
-        table = Table(
-            show_header=False, expand=True, border_style="#89dceb"
-        )  # Catppuccin Sky
+        table = Table(show_header=False, expand=True, border_style="#89dceb")  # Catppuccin Sky
         table.add_column("Item", style="bold #f5e0dc")  # Catppuccin Rosewater
         table.add_column("Value", style="#cba6f7")  # Catppuccin Mauve
 
-        table.add_row(
-            "Current cost", f"${self.manager.get_current_cost(self.user):.6f}"
-        )
+        table.add_row("Current cost", f"${self.manager.get_current_cost(self.user):.6f}")
         table.add_row("Total budget", f"${self.amount:.2f}")
         table.add_row("Remaining budget", f"${self.remaining_budget:.6f}")
 

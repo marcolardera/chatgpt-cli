@@ -4,7 +4,7 @@ from rich.theme import Theme
 """Define custom styles using Catppuccin colors."""
 
 
-class Style:
+class ConsoleStyle:
     """Define custom styles using Catppuccin colors."""
 
     info = "info"

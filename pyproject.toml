@@ -29,6 +29,7 @@ dependencies = [
     "hydra-core>=1.3.2",
     "pydantic>=2.8.2",
     "pydantic-collections>=0.6.0",
+    "fsspec>=2024.6.1",
 ]
 
 [project.optional-dependencies]
@@ -51,3 +52,6 @@ chatgpt-cli = "chatgpt_cli.main:main"
 
 [tool.setuptools.package-data]
 "chatgpt_cli" = ["config_template.yaml"]
+
+[tool.ruff]
+line-length = 120

@@ -9,11 +9,11 @@ chat with these models, manage budgets, and handle API keys efficiently.
 ## Configuration
 
 The configuration is managed through a `~/.config/chatgpt-cli/config2.yaml` file. Below is an example configuration:
-(`config2.yaml` to avoid conflict with the original tool config.) 
+(`config2.yaml` to avoid conflict with the original tool config.)
 
 ```yaml
 providers:
-  - api_key: abc # change to your key 
+  - api_key: abc # change to your key
     name: openai
   - api_key: abc # change to your key
     name: anthropic
@@ -37,7 +37,7 @@ Only in testing phase, not published yet!
 1. **Install the CLI**:
 
     ```shell
-    pdm install 
+    pdm install
     ```
 
 2. **Configure the CLI**:
