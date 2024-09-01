@@ -7,11 +7,11 @@ from pydantic import Field, BaseModel
 from typing_extensions import Self
 
 from chatgpt_cli.config import Model
-from chatgpt_cli.constants import BASE
+from chatgpt_cli.constants import CONFIG_DIR
 from chatgpt_cli.message import Messages
 from chatgpt_cli.ui import ConsoleStyle, console
 
-HISTORY_DIR = BASE / "session_history"
+HISTORY_DIR = CONFIG_DIR / "session_history"
 
 logger = logging.getLogger(__name__)
 

@@ -54,11 +54,11 @@ def main(cfg: DictConfig) -> None:
                 process_prompt(chat, prompt, index)
                 index += 1
         except KeyboardInterrupt:
+            console.print()
             console.print("Goodbye!", style=ConsoleStyle.success)
         finally:
             if config.budget.is_on:
-                console.print("Current cost: ", f"{round(config.budget.current_cost, 2)} USD",
-                              style=ConsoleStyle.warning)
+                config.budget.display_expense()
             if config.history.save:
                 history.save()
             elif isinstance(config.history.save, str):

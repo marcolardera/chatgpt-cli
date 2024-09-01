@@ -11,6 +11,8 @@ class ConsoleStyle:
     error = "error"  # Catppuccin Red
     warning = "warning"  # Catppuccin Yellow
     success = "success"  # Catppuccin Green
+    rosewater = "rosewater"  # Catppuccin Rosewater
+    number = "number"  # Catppuccin Mauve
 
 
 custom_theme = Theme(
@@ -19,6 +21,8 @@ custom_theme = Theme(
         "error": "bold #f38ba8",  # Catppuccin Red
         "warning": "bold #f9e2af",  # Catppuccin Yellow
         "success": "bold #a6e3a1",  # Catppuccin Green
+        "rosewater": "bold #f5e0dc",  # Catppuccin Rosewater
+        "number": "bold #cba6f7",  # Catppuccin Mauve
     }
 )
 
