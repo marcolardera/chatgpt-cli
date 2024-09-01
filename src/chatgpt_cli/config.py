@@ -138,11 +138,11 @@ class Config:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_val:
-            console.print(f"An error occurred: {exc_val}", style=ConsoleStyle.error)
+            console.print(f"An error occurred: {exc_val}", style=ConsoleStyle.bold_red)
         try:
             self.save()
         except Exception as e:
-            console.print(f"An error occurred: {e}", style=ConsoleStyle.error)
+            console.print(f"An error occurred: {e}", style=ConsoleStyle.bold_red)
 
 
 def _add_or_update_provider(existing_providers: list[Provider], provider: Provider):

@@ -7,22 +7,24 @@ from rich.theme import Theme
 class ConsoleStyle:
     """Define custom styles using Catppuccin colors."""
 
-    info = "info"  # Catppuccin Sky
-    error = "error"  # Catppuccin Red
-    warning = "warning"  # Catppuccin Yellow
-    success = "success"  # Catppuccin Green
-    rosewater = "rosewater"  # Catppuccin Rosewater
-    number = "number"  # Catppuccin Mauve
+    blue = "blue"
+    bold_blue = "bold_blue"
+    bold_red = "bold_red"
+    bold_yellow = "bold_yellow"
+    bold_green = "bold_green"
+    bold_rose = "bold_rose"
+    bold_purple = "bold_purple"
 
 
 custom_theme = Theme(
     {
-        "info": "bold #89dceb",  # Catppuccin Sky
-        "error": "bold #f38ba8",  # Catppuccin Red
-        "warning": "bold #f9e2af",  # Catppuccin Yellow
-        "success": "bold #a6e3a1",  # Catppuccin Green
-        "rosewater": "bold #f5e0dc",  # Catppuccin Rosewater
-        "number": "bold #cba6f7",  # Catppuccin Mauve
+        "blue": "#89dceb",  # Catppuccin Red
+        "bold_blue": "bold #89dceb",  # bold Catppuccin Sky
+        "bold_red": "bold #f38ba8",  # bold Catppuccin Red
+        "bold_yellow": "bold #f9e2af",  # bold Catppuccin Yellow
+        "bold_green": "bold #a6e3a1",  # bold Catppuccin Green
+        "bold_rose": "bold #f5e0dc",  # bold Catppuccin Rosewater
+        "bold_purple": "bold #cba6f7",  # bold Catppuccin Mauve
     }
 )
 

@@ -22,17 +22,17 @@ def process_prompt(chat: LLMChat, prompt: str, index: int) -> None:
     """Process the prompt."""
     console.rule()
     result = chat.completion(prompt)
-    console.print(f"assistant [{index}]: ", result, style=ConsoleStyle.info)
+    console.print(Text(f"assistant [{index}]: ", style=ConsoleStyle.bold_blue), result, style=ConsoleStyle.blue)
     console.print("")
 
 
 def print_header(config: Config):
     console.print()
-    console.print(Text("Welcome to ChatGPT CLI!", style=ConsoleStyle.warning))
+    console.print(Text("Welcome to ChatGPT CLI!", style=ConsoleStyle.bold_yellow))
     console.print(
-        Text(f"Provider: {config.suitable_provider.name}", style=ConsoleStyle.warning)
+        Text(f"Provider: {config.suitable_provider.name}", style=ConsoleStyle.bold_yellow)
     )
-    console.print(Text(f"Model: {config.model}", style=ConsoleStyle.warning))
+    console.print(Text(f"Model: {config.model}", style=ConsoleStyle.bold_yellow))
     console.print()
 
 # TODO: use typer instead of hydra
@@ -55,7 +55,7 @@ def main(cfg: DictConfig) -> None:
                 index += 1
         except KeyboardInterrupt:
             console.print()
-            console.print("Goodbye!", style=ConsoleStyle.success)
+            console.print("Goodbye!", style=ConsoleStyle.bold_green)
         finally:
             if config.budget.is_on:
                 config.budget.display_expense()

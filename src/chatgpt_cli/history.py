@@ -27,7 +27,7 @@ class History(BaseModel):
             with fsspec.open(HISTORY_DIR / file_name, "w+") as f:
                 f.write(self.model_dump_json())
         except Exception as e:
-            console.print(f"Failed to save history: {e}", style=ConsoleStyle.error)
+            console.print(f"Failed to save history: {e}", style=ConsoleStyle.bold_red)
 
     @classmethod
     def load(cls, file_name: str | None = None) -> Self:
@@ -37,7 +37,7 @@ class History(BaseModel):
             with fsspec.open(HISTORY_DIR / file_name, "r") as f:
                 return History.model_validate(json.load(f))
         except Exception as e:
-            console.print(f"Failed to load history: {e}", style=ConsoleStyle.error)
+            console.print(f"Failed to load history: {e}", style=ConsoleStyle.bold_red)
             return History()
 
 

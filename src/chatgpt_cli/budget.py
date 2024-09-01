@@ -9,6 +9,7 @@ from litellm import BudgetManager
 from litellm.types.utils import ModelResponse
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 from typing_extensions import override
 
 from chatgpt_cli.constants import CONFIG_DIR
@@ -91,9 +92,9 @@ class Budget:
 
     def display_expense(self) -> None:
         # Create a table for expense information
-        table = Table(show_header=True, expand=True, border_style=ConsoleStyle.info, header_style=ConsoleStyle.info)
-        table.add_column("Item", style=ConsoleStyle.success)
-        table.add_column("Value (USD)", style=ConsoleStyle.number, justify="right")
+        table = Table(show_header=True, expand=True, border_style=ConsoleStyle.bold_blue, header_style=ConsoleStyle.bold_blue)
+        table.add_column("Item", style=ConsoleStyle.bold_green)
+        table.add_column("Value (USD)", style=ConsoleStyle.bold_purple, justify="right")
 
         table.add_row("Current cost", f"{self.current_cost:.3f}")
         table.add_row("Total budget", f"{self.amount:.3f}")
@@ -105,18 +106,18 @@ class Budget:
             table.add_row("Cost breakdown by model:", "")
             for model, cost in model_costs.items():
                 # add style tag to force the number played consistently compared to other rows
-                table.add_row(model, f"{cost:.3f}", style=ConsoleStyle.warning)
+                table.add_row(Text(model, style=ConsoleStyle.bold_yellow), f"{cost:.3f}")
 
         # Create a panel to contain the table
         panel = Panel(
             table,
             title="Expense Information",
             expand=False,
-            border_style=ConsoleStyle.info,
+            border_style=ConsoleStyle.bold_blue,
             title_align="left",
         )
 
-        console.print(panel)
+        console.print(panel, )
 
     def save(self) -> None:
         self.manager.save_data()
