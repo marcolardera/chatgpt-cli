@@ -7,10 +7,10 @@ from rich.theme import Theme
 class ConsoleStyle:
     """Define custom styles using Catppuccin colors."""
 
-    info = "info"
-    error = "error"
-    warning = "warning"
-    success = "success"
+    info = "info"  # Catppuccin Sky
+    error = "error"  # Catppuccin Red
+    warning = "warning"  # Catppuccin Yellow
+    success = "success"  # Catppuccin Green
 
 
 custom_theme = Theme(
