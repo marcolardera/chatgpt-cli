@@ -177,3 +177,7 @@ session-history/
 
 # pdm
 .pdm-python
+
+# hydra
+.hydra/
+**/outputs/
