@@ -22,7 +22,7 @@ def process_prompt(chat: LLMChat, prompt: str, index: int) -> None:
     """Process the prompt."""
     console.rule()
     result = chat.completion(prompt)
-    console.print(f"assistent [{index}]: ", result, style=ConsoleStyle.info)
+    console.print(f"assistant [{index}]: ", result, style=ConsoleStyle.info)
     console.print("")
 
 
