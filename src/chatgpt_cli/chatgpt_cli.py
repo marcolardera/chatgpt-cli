@@ -1,6 +1,7 @@
 # native imports
 import os
 from typing import List, Dict, Union, Optional
+import sys
 
 # external imports
 import typer
@@ -12,14 +13,14 @@ from rich.text import Text
 from rich.traceback import install
 from litellm import check_valid_key
 
-from chatgpt.prompt.prompt import UserAIHighlighter
+from chatgpt_cli.prompt.prompt import UserAIHighlighter
 from rich.table import Table
 from rich.panel import Panel
 import click
 import importlib_metadata
 
 # internal imports
-from chatgpt.config.config import (
+from chatgpt_cli.config.config import (
     load_config,
     get_session_filename,
     get_last_save_file,
@@ -29,17 +30,24 @@ from chatgpt.config.config import (
     check_budget,
     initialize_budget_manager,
 )
-from chatgpt.config.model_handler import (
+from chatgpt_cli.config.model_handler import (
     get_valid_models_and_providers,
     validate_model,
     validate_provider,
 )
-from chatgpt.config.config import get_api_key
-from chatgpt.logs.loguru_init import logger
-from chatgpt.llm_api.llm_handler import chat_with_context
-from chatgpt.prompt.custom_console import create_custom_console
-from chatgpt.prompt.history import load_history_data, save_history
-from chatgpt.prompt.prompt import start_prompt, get_usage_stats, print_markdown
+from chatgpt_cli.config.config import get_api_key
+from chatgpt_cli.logs.loguru_init import logger
+from chatgpt_cli.llm_api.llm_handler import (
+    chat_with_context,
+    SYSTEM_MARKDOWN_INSTRUCTION,
+)
+from chatgpt_cli.llm_api.ollama_handler import (
+    SYSTEM_MARKDOWN_INSTRUCTION_OLLAMA,
+    chat_with_ollama,
+)
+from chatgpt_cli.prompt.custom_console import create_custom_console
+from chatgpt_cli.prompt.history import load_history_data, save_history
+from chatgpt_cli.prompt.prompt import start_prompt, get_usage_stats, print_markdown
 
 __version__ = importlib_metadata.version("chatgpt-cli")
 
@@ -93,6 +101,14 @@ class PathCompleter(Completer):
             except OSError:
                 pass  # Handle permission errors or non-existent directories
 
+@app.command()
+def version():
+    """
+    Show the version of the downloader CLI.
+    """
+    from .config.config import get_version_from_pyproject
+
+    typer.echo(get_version_from_pyproject())
 
 @app.command(name="")
 def main(
@@ -108,9 +124,6 @@ def main(
         Optional[str], typer.Option(help="Set custom save file")
     ] = None,
     api_key: Annotated[Optional[str], typer.Option(help="Set the API key")] = None,
-    non_interactive: Annotated[
-        bool, typer.Option(help="Run in non-interactive mode")
-    ] = False,
     multiline: Annotated[
         Optional[bool], typer.Option(help="Enable/disable multiline input")
     ] = None,
@@ -251,6 +264,9 @@ def main(
 
     highlighter = UserAIHighlighter()
 
+    # Display system instructions
+    messages.append({"role": "system", "content": SYSTEM_MARKDOWN_INSTRUCTION})
+
     while True:
         try:
             user_message, code_blocks = start_prompt(
@@ -299,7 +315,9 @@ def main(
 
                         # Update cost in BudgetManager
                         budget_manager.update_cost(
-                            user=config["budget_user"],
+                            user=config["budget_user"]
+                            if config.get("budget_user")
+                            else None,
                             completion_obj=response_obj,
                         )
 
@@ -396,7 +414,98 @@ def main(
     budget_manager.save_data()
 
 
+@app.command()
+def ollama(
+    model: Annotated[
+        str, typer.Option(help="ID of the Ollama model to use")
+    ] = "dolphin-llama3:latest",
+    endpoint: Annotated[
+        str, typer.Option(help="Ollama API endpoint")
+    ] = "http://localhost:11434",
+):
+    """Chat with an Ollama model"""
+    config = {
+        "provider": "ollama",
+        "model": model,
+        "api_base": endpoint,
+        "storage_format": "markdown",
+        "show_spinner": True,
+    }
+
+    messages = []
+    SAVE_FILE = get_session_filename()
+    session = PromptSession()
+    prompt_tokens = 0
+    completion_tokens = 0
+    messages.append({"role": "system", "content": SYSTEM_MARKDOWN_INSTRUCTION_OLLAMA})
+
+    while True:
+        try:
+            user_message, _ = start_prompt(
+                session,
+                config,
+                messages,
+                prompt_tokens,
+                completion_tokens,
+                {},  # Empty code_blocks dictionary
+            )
+
+            if user_message["content"].lower() in ["exit", "quit", "q"]:
+                break
+
+            messages.append(user_message)
+
+            response_content, response_obj = chat_with_ollama(
+                config,
+                messages,
+                session,
+                proxy=None,
+                show_spinner=config["show_spinner"],
+            )
+
+            if response_content:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response_content,
+                    }
+                )
+                ai_text = Text("AI:")
+                console.print(UserAIHighlighter()(ai_text))
+                print_markdown(response_content, {})
+
+                # Update token counts
+                prompt_tokens += response_obj["usage"]["prompt_tokens"]
+                completion_tokens += response_obj["usage"]["completion_tokens"]
+
+                save_history(
+                    config=config,
+                    model=config["model"],
+                    messages=messages,
+                    save_file=SAVE_FILE,
+                    storage_format=config["storage_format"],
+                )
+            else:
+                rich_console.print(Text("Failed to get a response", style="bold red"))
+
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            rich_console.print(Text(f"An error occurred: {e}", style="bold red"))
+
+    rich_console.print(Text("Goodbye!", style="bold green"))
+
+    # Display token usage
+    rich_console.print(f"Total prompt tokens: {prompt_tokens}")
+    rich_console.print(f"Total completion tokens: {completion_tokens}")
+    rich_console.print(f"Total tokens: {prompt_tokens + completion_tokens}")
+
+
 if __name__ == "__main__":
     logger.remove()
     logger.add("logs/chatgpt_{time}.log", enqueue=True)
-    app()
+    try:
+        app()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)

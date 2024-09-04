@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from chatgpt.prompt.prompt import console
+from chatgpt_cli.prompt.prompt import console
 from litellm import BudgetManager
 from rich.panel import Panel
 from rich.table import Table

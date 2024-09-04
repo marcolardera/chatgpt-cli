@@ -8,6 +8,10 @@ __pycache__/
 .DS_Store
 # C extensions
 *.so
+.gitignore
+.python-version
+*,log
+
 config_tadeasfort.yml
 # Distribution / packaging
 .Python

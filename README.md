@@ -160,7 +160,7 @@ The `config` module loads the configuration from the `config.yaml` file, initial
 
 ### Main Application
 
-The `chatgpt.py` file is the main entry point of the application. It initializes the CLI, handles user input, and coordinates interactions between different modules.
+The `chatgpt_cli.py` file is the main entry point of the application. It initializes the CLI, handles user input, and coordinates interactions between different modules.
 
 1. **Initialization**:
     - The script initializes global variables, sets up logging, and configures the CLI using [`rich_click`](https://github.com/ewels/rich-click).

@@ -4,6 +4,7 @@ import yaml
 from xdg_base_dirs import xdg_config_home
 from typing import Any, Dict
 from litellm import BudgetManager
+import toml
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -17,7 +18,6 @@ DEFAULT_CONFIG = {
     "temperature": 0.7,
     "markdown": True,
     "easy_copy": True,
-    "non_interactive": False,
     "json_mode": False,
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
@@ -62,15 +62,32 @@ def load_config(config_file: Path) -> Dict[str, Any]:
     # Ensure the API key for the selected provider is set
     provider_key = f"{merged_config['provider']}_api_key"
     if provider_key not in merged_config or not merged_config[provider_key]:
-        raise ValueError(
-            f"API key for {merged_config['provider']} is not set in the config file."
-        )
+        # Check for the API key in environment variables
+        api_key = os.getenv(provider_key.upper())
+        if not api_key:
+            raise ValueError(
+                f"API key for {merged_config['provider']} is not set in the config file or environment variables."
+            )
+        merged_config[provider_key] = api_key
+        # Save the updated config back to the file
+        with open(config_file, "w") as f:
+            yaml.dump(merged_config, f)
 
     # Ensure storage_format is set, defaulting to "markdown" if not specified
     if "storage_format" not in merged_config:
         merged_config["storage_format"] = "markdown"
 
     return merged_config
+
+def get_version_from_pyproject() -> str:
+    """Retrieve the version from pyproject.toml."""
+    # Construct the path relative to the project root
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    pyproject_path = project_root / "pyproject.toml"
+    
+    with open(pyproject_path, "r") as f:
+        pyproject_data = toml.load(f)
+    return pyproject_data["project"]["version"]
 
 
 def create_save_folder():
@@ -129,12 +146,13 @@ def initialize_budget_manager(config: Dict[str, Any]) -> BudgetManager:
 
     budget_manager = BudgetManager(project_name="chatgpt-cli")
     budget_manager.load_data()  # Load the budget data from the previous session
-    if not budget_manager.is_valid_user(config["budget_user"]):
-        budget_manager.create_budget(
-            total_budget=config["budget_amount"],
-            user=config["budget_user"],
-            duration=config["budget_duration"],
-        )
+    if config.get("budget_enabled", False) and config.get("budget_user"):
+        if not budget_manager.is_valid_user(config["budget_user"]):
+            budget_manager.create_budget(
+                total_budget=config["budget_amount"],
+                user=config["budget_user"],
+                duration=config["budget_duration"],
+            )
     return budget_manager
 
 
@@ -148,7 +166,7 @@ def check_budget(config: Dict[str, Any], budget_manager: BudgetManager) -> bool:
     Returns:
         bool: True if the current cost is within the budget limit, False otherwise.
     """
-    if config["budget_enabled"]:
+    if config.get("budget_enabled", False) and config.get("budget_user"):
         user = config["budget_user"]
         current_cost = budget_manager.get_current_cost(user)
         total_budget = budget_manager.get_total_budget(user)

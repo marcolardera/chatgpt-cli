@@ -28,7 +28,7 @@ Install the requirements:
 
 Run the code during development:
 
-`python src/chatgpt.py`
+`python src/chatgpt_cli.py`
 
 After the changes are done don't forget to:
 
