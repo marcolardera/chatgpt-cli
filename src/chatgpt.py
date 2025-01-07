@@ -53,7 +53,9 @@ PRICING_RATE = {
     "gpt-4-0125-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4o": {"prompt": 0.0025, "completion": 0.01},
-    "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006}
+    "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
+    "o1-mini": {"prompt": 0.003, "completion": 0.012},
+    "o1-preview": {"prompt": 0.015, "completion": 0.06},
 }
 
 logger = logging.getLogger("rich")
@@ -563,7 +565,7 @@ def main(
     logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
 
     # Add the system message for code blocks in case markdown is enabled in the config file
-    if config["markdown"]:
+    if config["markdown"] and not model.startswith("o1"):
         add_markdown_system_message()
 
     # Context from the command line option
