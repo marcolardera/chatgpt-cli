@@ -69,6 +69,9 @@ ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to us
 | `gpt-4-0125-preview` | 0.01                  | 0.03                  |
 | `gpt-4-turbo`        | 0.01                  | 0.03                  |
 | `gpt-4o`             | 0.005                 | 0.015                 |
+| `o1-mini`            | 0.003                 | 0.012                 |
+| `o1-preview`         | 0.015                 | 0.06                  |
+
 
 Pricing is calculated as $/1000 tokens.
 
