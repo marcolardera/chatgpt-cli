@@ -21,16 +21,12 @@ from rich.markdown import Markdown
 from typing import Optional
 from xdg_base_dirs import xdg_config_home
 
-
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
 HISTORY_FILE = BASE / "history"
 SAVE_FOLDER = BASE / "session-history"
 SAVE_FILE = (
     "chatgpt-session-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json"
-)
-OPENAI_BASE_ENDPOINT = os.environ.get(
-    "OPENAI_BASE_ENDPOINT", "https://api.openai.com/v1"
 )
 ENV_VAR = "OPENAI_API_KEY"
 
@@ -81,6 +77,7 @@ DEFAULT_CONFIG = {
     "supplier": "openai",
     "api-key": "<INSERT YOUR  OPENAI API KEY HERE>",
     "model": "gpt-3.5-turbo",
+    "openai_endpoint": "https://api.openai.com/v1",
     "azure_endpoint": "https://xxxx.openai.azure.com/",
     "azure_api_version": "2023-07-01-preview",
     "azure_api_key": "<INSERT YOUR AZURE API KEY HERE>",
@@ -331,7 +328,7 @@ def start_prompt(
     elif config["supplier"] == "openai":
         api_key = config["api-key"]
         model = config["model"]
-        base_endpoint = OPENAI_BASE_ENDPOINT
+        base_endpoint = config["openai_endpoint"]
     else:
         logger.error("Supplier must be either 'azure' or 'openai'")
 
