@@ -56,6 +56,7 @@ PRICING_RATE = {
     "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
     "o1-mini": {"prompt": 0.003, "completion": 0.012},
     "o1-preview": {"prompt": 0.015, "completion": 0.06},
+    "o3-mini": {"prompt": 0.0011, "completion": 0.0044},
 }
 
 logger = logging.getLogger("rich")
