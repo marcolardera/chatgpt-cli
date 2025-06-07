@@ -537,6 +537,10 @@ def main(
         else:
             config["azure_deployment_name"] = model.strip()
 
+    # Override base endpoint configuration if the env var is set
+    if os.environ.get("OPENAI_BASE_ENDPOINT"):
+        config["openai_endpoint"] = os.environ["OPENAI_BASE_ENDPOINT"].strip()
+
     config["non_interactive"] = non_interactive
 
     # Do not emit markdown in this case; ctrl character formatting interferes in several contexts including json

@@ -3,6 +3,7 @@ supplier: "openai"
 
 # If supplier is OpenAI, please set this value
 api-key: "<INSERT YOUR OPENAI API KEY HERE>"
+openai_endpoint: "https://api.openai.com/v1"
 model: "gpt-3.5-turbo"
 
 # If supplier is Azure, please set this value
