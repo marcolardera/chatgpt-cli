@@ -50,9 +50,13 @@ PRICING_RATE = {
     "gpt-4-turbo-preview": {"prompt": 0.01, "completion": 0.03},
     "gpt-4o": {"prompt": 0.0025, "completion": 0.01},
     "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
+    "gpt-4.1": {"prompt": 0.002, "completion": 0.008},
+    "gpt-4.1-mini": {"prompt": 0.0004, "completion": 0.0016},
+    "gpt-4.1-nano": {"prompt": 0.0001, "completion": 0.0004},
     "o1-mini": {"prompt": 0.003, "completion": 0.012},
     "o1-preview": {"prompt": 0.015, "completion": 0.06},
     "o3-mini": {"prompt": 0.0011, "completion": 0.0044},
+    "o4-mini": {"prompt": 0.0011, "completion": 0.0044},
 }
 
 logger = logging.getLogger("rich")
