@@ -11,15 +11,22 @@ import re
 import requests
 import sys
 import yaml
+import threading
+import time
+import itertools
 
 from pathlib import Path
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.application.current import get_app
+from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from typing import Optional
 from xdg_base_dirs import xdg_config_home
+from tabulate import tabulate
+from colorama import init, Fore
 
 BASE = Path(xdg_config_home(), "chatgpt-cli")
 CONFIG_FILE = BASE / "config.yaml"
@@ -64,7 +71,8 @@ logging.basicConfig(
     level="INFO",
     format="%(message)s",
     handlers=[
-        RichHandler(show_time=False, show_level=False, show_path=False, markup=True)
+        RichHandler(show_time=False, show_level=False,
+                    show_path=False, markup=True)
     ],
 )
 
@@ -97,6 +105,31 @@ DEFAULT_CONFIG = {
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
 }
+
+# Initialize colorama
+init(autoreset=True)
+
+# Function to show spinner in a separate thread
+
+
+def show_spinner(stop_event, length_char=7, spinner_clear_length=9):
+    # Initialize colorama
+    init(autoreset=True)
+
+    # Using red, blue, green spinners
+    spinner_colors = itertools.cycle([Fore.GREEN])
+    spinner_char = ">"  # Using square block character for the spinner
+
+    while not stop_event.is_set():
+        for i in range(length_char + 1):
+            spinner = f"{next(spinner_colors)}{spinner_char * i:<{length_char}}"
+            sys.stdout.write(f"\r{spinner}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    # Clear spinner once done
+    sys.stdout.write("\r" + " " * spinner_clear_length + "\r")
+    sys.stdout.flush()
 
 
 def load_config(config_file: str) -> dict:
@@ -140,7 +173,8 @@ def get_last_save_file() -> str:
     """
     files = [f for f in os.listdir(SAVE_FOLDER) if f.endswith(".json")]
     if files:
-        ts = [f.replace("chatgpt-session-", "").replace(".json", "") for f in files]
+        ts = [f.replace("chatgpt-session-", "").replace(".json", "")
+              for f in files]
         ts.sort()
         return ts[-1]
     return None
@@ -178,7 +212,8 @@ def add_markdown_system_message() -> None:
     """
     Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
     """
-    instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    instruction = f"You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture. Current date: {current_date}. Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
     messages.append({"role": "system", "content": instruction})
 
 
@@ -187,45 +222,50 @@ def calculate_expense(
     completion_tokens: int,
     prompt_pricing: float,
     completion_pricing: float,
-) -> float:
+) -> tuple:
+    """                                                                                                                                                                     
+    Calculate the total expense, prompt expense, and completion expense,                                                                                                    
+    given the number of tokens and the pricing rates                                                                                                                        
     """
-    Calculate the expense, given the number of tokens and the pricing rates
-    """
-    expense = ((prompt_tokens / 1000) * prompt_pricing) + (
-        (completion_tokens / 1000) * completion_pricing
-    )
+    prompt_expense = (prompt_tokens / 1000) * prompt_pricing
+    completion_expense = (completion_tokens / 1000) * completion_pricing
+    total_expense = prompt_expense + completion_expense
 
     # Format to display in decimal notation rounded to 6 decimals
-    expense = "{:.6f}".format(round(expense, 6))
+    prompt_expense = "{:.6f}".format(round(prompt_expense, 6))
+    completion_expense = "{:.6f}".format(round(completion_expense, 6))
+    total_expense = "{:.6f}".format(round(total_expense, 6))
 
-    return expense
+    return total_expense, prompt_expense, completion_expense
 
 
 def display_expense(model: str) -> None:
     """
     Given the model used, display total tokens used and estimated expense
     """
-    logger.info(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
-        extra={"highlighter": None},
-    )
-
+    console.rule(f"[bold green]Usage and Expense")
     if model in PRICING_RATE:
-        total_expense = calculate_expense(
+        total_expense, prompt_expense, completion_expense = calculate_expense(
             prompt_tokens,
             completion_tokens,
             PRICING_RATE[model]["prompt"],
             PRICING_RATE[model]["completion"],
-        )
-        logger.info(
-            f"Estimated expense: [green bold]${total_expense}",
-            extra={"highlighter": None},
         )
     else:
         logger.warning(
             f"[red bold]No expense estimate available for model {model}",
             extra={"highlighter": None},
         )
+    table_data = [
+        ["Token Type", "Count", "Price"],
+        ["Prompt Tokens", prompt_tokens, prompt_expense],
+        ["Total Completion Tokens", completion_tokens, completion_expense],
+        ["Total Tokens", prompt_tokens + completion_tokens, total_expense]
+    ]
+    table_str = tabulate(table_data, headers="firstrow", tablefmt="grid")
+
+    logger.info(table_str)
+    console.rule(f"[bold green]ChatGPT CLI End")
 
 
 def print_markdown(content: str, code_blocks: Optional[dict] = None):
@@ -238,7 +278,8 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
         return
 
     lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
+    code_block_id = 0 if code_blocks is None else 1 + \
+        max(code_blocks.keys(), default=0)
     code_block_open = False
     code_block_language = ""
     code_block_content = []
@@ -257,7 +298,8 @@ def print_markdown(content: str, code_blocks: Optional[dict] = None):
             if code_blocks is not None:
                 code_blocks[code_block_id] = snippet_text
             formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
+            console.print(f"Block {code_block_id}",
+                          style="blue", justify="right")
             console.print(Markdown(formatted_code_block))
             code_block_id += 1
             code_block_content = []
@@ -287,14 +329,12 @@ def start_prompt(
     global prompt_tokens, completion_tokens
 
     message = ""
-
+    current_time_Human = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    console.rule(f"[bold blue]Human | {current_time_Human}", style="blue")
     if config["non_interactive"]:
         message = sys.stdin.read()
     else:
-        message = session.prompt(
-            HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>")
-        )
-
+        message = session.prompt(HTML('<b><ansiblue>>>> </ansiblue></b>'))
     if message.lower().strip() == "/q":
         raise EOFError
     if message.lower() == "":
@@ -348,7 +388,10 @@ def start_prompt(
         body["max_tokens"] = config["max_tokens"]
     if config["json_mode"]:
         body["response_format"] = {"type": "json_object"}
-
+    stop_spinner = threading.Event()
+    spinner_thread = threading.Thread(
+        target=show_spinner, args=(stop_spinner,))
+    spinner_thread.start()
     try:
         if config["supplier"] == "azure":
             headers = {
@@ -373,37 +416,49 @@ def start_prompt(
                 proxies=proxy,
             )
     except requests.ConnectionError:
+        stop_spinner.set()
         logger.error(
             "[red bold]Connection error, try again...", extra={"highlighter": None}
         )
         messages.pop()
         raise KeyboardInterrupt
     except requests.Timeout:
+        stop_spinner.set()
         logger.error(
             "[red bold]Connection timed out, try again...", extra={"highlighter": None}
         )
         messages.pop()
         raise KeyboardInterrupt
-
+    finally:
+        stop_spinner.set()
+        spinner_thread.join()
     match r.status_code:
         case 200:
             response = r.json()
 
             message_response = response["choices"][0]["message"]
             usage_response = response["usage"]
-
+            current_time_Agent = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            current_completions_tokens = usage_response["completion_tokens"]
+            current_prompt_tokens = usage_response["prompt_tokens"]
+            console.rule(
+                f"[bold blue][{current_prompt_tokens}]", style="blue")
+            console.rule(
+                f"[bold red]Agent | {current_time_Agent}", style="bold red")
             if not config["non_interactive"]:
                 console.line()
             if config["markdown"]:
-                print_markdown(message_response["content"].strip(), copyable_blocks)
+                print_markdown(
+                    message_response["content"].strip(), copyable_blocks)
             else:
                 print(message_response["content"].strip())
             if not config["non_interactive"]:
                 console.line()
-
             # Update message history and token counters
+            console.rule(
+                f"[bold red][{current_completions_tokens}]", style="red")
             messages.append(message_response)
-            prompt_tokens += usage_response["prompt_tokens"]
+            prompt_tokens = usage_response["prompt_tokens"]
             completion_tokens += usage_response["completion_tokens"]
             save_history(model, messages, prompt_tokens, completion_tokens)
 
@@ -421,11 +476,13 @@ def start_prompt(
                     )
                     raise EOFError
                     # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request", extra={"highlighter": None})
+            logger.error("[red bold]Invalid request",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 401:
-            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
+            logger.error("[red bold]Invalid API Key",
+                         extra={"highlighter": None})
             raise EOFError
 
         case 429:
@@ -497,8 +554,7 @@ def main(
     # If non interactive suppress the logging messages
     if non_interactive:
         logger.setLevel("ERROR")
-
-    logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
+    console.rule(f"[bold green]ChatGPT CLI Start")
 
     history = FileHistory(HISTORY_FILE)
 
@@ -568,7 +624,8 @@ def main(
     logger.info(
         f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
     )
-    logger.info(f"Model in use: [green bold]{model}", extra={"highlighter": None})
+    logger.info(f"Model in use: [green bold]{model}", extra={
+                "highlighter": None})
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"] and not model.startswith("o1"):
@@ -593,7 +650,8 @@ def main(
             global prompt_tokens, completion_tokens
             # If this feature is used --context is cleared
             messages.clear()
-            history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
+            history_data = load_history_data(
+                os.path.join(SAVE_FOLDER, restore_file))
             for message in history_data["messages"]:
                 messages.append(message)
             prompt_tokens += history_data["prompt_tokens"]
