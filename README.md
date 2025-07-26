@@ -38,6 +38,15 @@ After that, you need to configure your API Key. There are three alternative ways
 
 If more then one API Key is provided, ChatGPT CLI follows this priority order: *Command line option > Environment variable > Configuration file*
 
+### Troubleshooting "error: externally-managed-environment"
+
+In some recent Linux systems the installation of global packages (without a venv) is not allowed anymore. In case of this error, chatgpt-cli can be installed using _pipx_ instead of _pip_. Pipx installs packages in a isolated environment, but they are still globally available on the system. For example, on a Debian/Ubuntu base system, it is possible to just do as following:
+
+```console
+sudo apt install pipx
+pipx install git+https://github.com/marcolardera/chatgpt-cli
+```
+
 ### Configuration file
 
 The configuration file *config.yaml* can be found in the default config directory of the user defined by the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
