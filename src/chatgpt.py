@@ -81,7 +81,7 @@ console = Console()
 DEFAULT_CONFIG = {
     "supplier": "openai",
     "api-key": "<INSERT YOUR  OPENAI API KEY HERE>",
-    "model": "gpt-3.5-turbo",
+    "model": "gpt-4o",
     "openai_endpoint": "https://api.openai.com/v1",
     "azure_endpoint": "https://xxxx.openai.azure.com/",
     "azure_api_version": "2023-07-01-preview",

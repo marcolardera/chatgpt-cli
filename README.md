@@ -61,7 +61,7 @@ You can set the supplier as `openai` (the default) or `azure` in the [config.yam
 
 ## Models
 
-ChatGPT CLI, by default, uses the original `gpt-3.5-turbo` model. In order to use other ChatGPT models, edit the `model` parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available options:
+ChatGPT CLI, by default, uses the standard `gpt-4o` model. In order to use other ChatGPT models, edit the `model` parameter in the *config.yaml* file ore use the `--model` command line option. Here is a list of all the available options:
 
 | Name                 | Pricing (input token) | Pricing(output token) |
 | -------------------- | --------------------- | --------------------- |
