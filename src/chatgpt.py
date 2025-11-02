@@ -19,6 +19,7 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
+from rich.theme import Theme
 from typing import Optional
 from xdg_base_dirs import xdg_config_home
 
@@ -76,14 +77,28 @@ logging.basicConfig(
 )
 
 
-# Initialize the messages history list
-# It's mandatory to pass it at each API call in order to have a conversation
-messages = []
-# Initialize the token counters
-prompt_tokens = 0
-completion_tokens = 0
-# Initialize the console
-console = Console()
+def get_console_theme(light_mode: bool = False) -> Optional[Theme]:
+    """
+    Create and return a theme optimized for the terminal background.
+
+    For light mode (white background), use darker, more saturated colors.
+    For dark mode (default), use the standard rich theme.
+    """
+    if light_mode:
+        # Custom theme for white/light backgrounds with readable colors
+        return Theme(
+            {
+                "info": "blue bold",
+                "warning": "dark_orange bold",
+                "error": "red bold",
+                "success": "dark_green bold",
+                # Override common color names for better readability on white backgrounds
+                "green": "dark_green",
+                "blue": "dark_blue",
+            }
+        )
+    return None  # Use default theme
+
 
 DEFAULT_CONFIG = {
     "supplier": "openai",
@@ -103,6 +118,7 @@ DEFAULT_CONFIG = {
     "json_mode": False,
     "use_proxy": False,
     "proxy": "socks5://127.0.0.1:2080",
+    "light_mode": False,
 }
 
 
@@ -181,14 +197,6 @@ def save_history(
         )
 
 
-def add_markdown_system_message() -> None:
-    """
-    Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
-    """
-    instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
-    messages.append({"role": "system", "content": instruction})
-
-
 def calculate_expense(
     prompt_tokens: int,
     completion_tokens: int,
@@ -208,289 +216,317 @@ def calculate_expense(
     return expense
 
 
-def display_expense(model: str) -> None:
+class ChatGptCli:
     """
-    Given the model used, display total tokens used and estimated expense
+    ChatGPT CLI application class that encapsulates all state variables.
     """
-    logger.info(
-        f"\nTotal tokens used: [green bold]{prompt_tokens + completion_tokens}",
-        extra={"highlighter": None},
-    )
 
-    if model in PRICING_RATE:
-        total_expense = calculate_expense(
-            prompt_tokens,
-            completion_tokens,
-            PRICING_RATE[model]["prompt"],
-            PRICING_RATE[model]["completion"],
-        )
+    def __init__(self, theme: Optional[Theme] = None):
+        # Initialize the messages history list
+        # It's mandatory to pass it at each API call in order to have a conversation
+        self.messages = []
+        # Initialize the token counters
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        # Initialize the console
+        self.console = Console(theme=theme)
+
+    def add_markdown_system_message(self) -> None:
+        """
+        Try to force ChatGPT to always respond with well formatted code blocks and tables if markdown is enabled.
+        """
+        instruction = "Always use code blocks with the appropriate language tags. If asked for a table always format it using Markdown syntax."
+        self.messages.append({"role": "system", "content": instruction})
+
+    def display_expense(self, model: str) -> None:
+        """
+        Given the model used, display total tokens used and estimated expense
+        """
         logger.info(
-            f"Estimated expense: [green bold]${total_expense}",
-            extra={"highlighter": None},
-        )
-    else:
-        logger.warning(
-            f"[red bold]No expense estimate available for model {model}",
+            f"\nTotal tokens used: [green bold]{self.prompt_tokens + self.completion_tokens}",
             extra={"highlighter": None},
         )
 
-
-def print_markdown(content: str, code_blocks: Optional[dict] = None):
-    """
-    Print markdown formatted text to the terminal.
-    If code_blocks is present, label each code block with an integer and store in the code_blocks map.
-    """
-    if code_blocks is None:
-        console.print(Markdown(content))
-        return
-
-    lines = content.split("\n")
-    code_block_id = 0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
-    code_block_open = False
-    code_block_language = ""
-    code_block_content = []
-    regular_content = []
-
-    for line in lines:
-        if line.startswith("```") and not code_block_open:
-            code_block_open = True
-            code_block_language = line.replace("```", "").strip()
-            if regular_content:
-                console.print(Markdown("\n".join(regular_content)))
-                regular_content = []
-        elif line.startswith("```") and code_block_open:
-            code_block_open = False
-            snippet_text = "\n".join(code_block_content)
-            if code_blocks is not None:
-                code_blocks[code_block_id] = snippet_text
-            formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
-            console.print(f"Block {code_block_id}", style="blue", justify="right")
-            console.print(Markdown(formatted_code_block))
-            code_block_id += 1
-            code_block_content = []
-            code_block_language = ""
-        elif code_block_open:
-            code_block_content.append(line)
+        if model in PRICING_RATE:
+            total_expense = calculate_expense(
+                self.prompt_tokens,
+                self.completion_tokens,
+                PRICING_RATE[model]["prompt"],
+                PRICING_RATE[model]["completion"],
+            )
+            logger.info(
+                f"Estimated expense: [green bold]${total_expense}",
+                extra={"highlighter": None},
+            )
         else:
-            regular_content.append(line)
+            logger.warning(
+                f"[red bold]No expense estimate available for model {model}",
+                extra={"highlighter": None},
+            )
 
-    if code_block_open:  # uh-oh, the code block was never closed.
-        console.print(Markdown("\n".join(code_block_content)))
-    elif regular_content:  # If there's any remaining regular content, print it
-        console.print(Markdown("\n".join(regular_content)))
+    def print_markdown(self, content: str, code_blocks: Optional[dict] = None):
+        """
+        Print markdown formatted text to the terminal.
+        If code_blocks is present, label each code block with an integer and store in the code_blocks map.
+        """
+        if code_blocks is None:
+            self.console.print(Markdown(content))
+            return
 
-
-def print_messages(
-    config: dict, messages: dict, copyable_blocks: Optional[dict] = None
-):
-    for message_response in messages:
-        if not config["non_interactive"]:
-            console.line()
-        if config["markdown"]:
-            print_markdown(message_response["content"].strip(), copyable_blocks)
-        else:
-            print(message_response["content"].strip())
-            if not config["non_interactive"]:
-                console.line()
-
-
-def start_prompt(
-    session: PromptSession,
-    config: dict,
-    copyable_blocks: Optional[dict],
-    proxy: dict | None,
-) -> None:
-    """
-    Ask the user for input, build the request and perform it
-    """
-
-    # TODO: Refactor to avoid a global variables
-    global prompt_tokens, completion_tokens
-
-    message = ""
-
-    if config["non_interactive"]:
-        message = sys.stdin.read()
-    else:
-        message = session.prompt(
-            HTML(f"<b>[{prompt_tokens + completion_tokens}] >>> </b>")
+        lines = content.split("\n")
+        code_block_id = (
+            0 if code_blocks is None else 1 + max(code_blocks.keys(), default=0)
         )
+        code_block_open = False
+        code_block_language = ""
+        code_block_content = []
+        regular_content = []
 
-    if message.lower().strip() == "/q":
-        raise EOFError
-    if message.lower() == "":
-        raise KeyboardInterrupt
-
-    if not config["non_interactive"] and message.lower().lstrip().startswith("/r"):
-        if copyable_blocks is not None:
-            copyable_blocks.clear()
-        console.width = shutil.get_terminal_size().columns
-        if not config["non_interactive"]:
-            console.rule("History (including context):")
-        print_messages(config, messages, copyable_blocks)
-        if not config["non_interactive"]:
-            console.rule()
-        raise KeyboardInterrupt
-
-    if config["easy_copy"] and message.lower().lstrip().startswith("/c"):
-        # Use regex to find digits after /c or /copy
-        match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
-        if match:
-            block_id = int(match.group(1))
-            if block_id in copyable_blocks:
-                try:
-                    pyperclip.copy(copyable_blocks[block_id])
-                    logger.info(f"Copied block {block_id} to clipboard")
-                except pyperclip.PyperclipException:
-                    logger.error(
-                        "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error"
-                    )
-            else:
-                logger.error(
-                    f"No code block with ID {block_id} available",
-                    extra={"highlighter": None},
+        for line in lines:
+            if line.startswith("```") and not code_block_open:
+                code_block_open = True
+                code_block_language = line.replace("```", "").strip()
+                if regular_content:
+                    self.console.print(Markdown("\n".join(regular_content)))
+                    regular_content = []
+            elif line.startswith("```") and code_block_open:
+                code_block_open = False
+                snippet_text = "\n".join(code_block_content)
+                if code_blocks is not None:
+                    code_blocks[code_block_id] = snippet_text
+                formatted_code_block = f"```{code_block_language}\n{snippet_text}\n```"
+                self.console.print(
+                    f"Block {code_block_id}", style="blue", justify="right"
                 )
-        elif messages:
-            pyperclip.copy(messages[-1]["content"])
-            logger.info(f"Copied previous response to clipboard")
-        raise KeyboardInterrupt
+                self.console.print(Markdown(formatted_code_block))
+                code_block_id += 1
+                code_block_content = []
+                code_block_language = ""
+            elif code_block_open:
+                code_block_content.append(line)
+            else:
+                regular_content.append(line)
 
-    messages.append({"role": "user", "content": message})
+        if code_block_open:  # uh-oh, the code block was never closed.
+            self.console.print(Markdown("\n".join(code_block_content)))
+        elif regular_content:  # If there's any remaining regular content, print it
+            self.console.print(Markdown("\n".join(regular_content)))
 
-    if config["supplier"] == "azure":
-        api_key = config["azure_api_key"]
-        model = config["azure_deployment_name"]
-        api_version = config["azure_api_version"]
-        base_endpoint = config["azure_endpoint"]
-    elif config["supplier"] == "openai":
-        api_key = config["api-key"]
-        model = config["model"]
-        base_endpoint = config["openai_endpoint"]
-    else:
-        logger.error("Supplier must be either 'azure' or 'openai'")
-
-    # Base body parameters
-    body = {
-        "model": model,
-        "temperature": config["temperature"],
-        "messages": messages,
-    }
-    # Optional parameters
-    if "max_tokens" in config:
-        body["max_tokens"] = config["max_tokens"]
-    if config["json_mode"]:
-        body["response_format"] = {"type": "json_object"}
-
-    try:
-        if config["supplier"] == "azure":
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": api_key,
-            }
-            r = requests.post(
-                f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
-                headers=headers,
-                json=body,
-                proxies=proxy,
-            )
-        elif config["supplier"] == "openai":
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            }
-            r = requests.post(
-                f"{base_endpoint}/chat/completions",
-                headers=headers,
-                json=body,
-                proxies=proxy,
-            )
-    except requests.ConnectionError:
-        logger.error(
-            "[red bold]Connection error, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-    except requests.Timeout:
-        logger.error(
-            "[red bold]Connection timed out, try again...", extra={"highlighter": None}
-        )
-        messages.pop()
-        raise KeyboardInterrupt
-
-    match r.status_code:
-        case 200:
-            response = r.json()
-
-            message_response = response["choices"][0]["message"]
-            usage_response = response["usage"]
-
+    def print_messages(
+        self, config: dict, messages: dict, copyable_blocks: Optional[dict] = None
+    ):
+        for message_response in messages:
             if not config["non_interactive"]:
-                console.line()
+                self.console.line()
             if config["markdown"]:
-                print_markdown(message_response["content"].strip(), copyable_blocks)
+                self.print_markdown(
+                    message_response["content"].strip(), copyable_blocks
+                )
             else:
                 print(message_response["content"].strip())
+                if not config["non_interactive"]:
+                    self.console.line()
+
+    def start_prompt(
+        self,
+        session: PromptSession,
+        config: dict,
+        copyable_blocks: Optional[dict],
+        proxy: dict | None,
+    ) -> None:
+        """
+        Ask the user for input, build the request and perform it
+        """
+
+        message = ""
+
+        if config["non_interactive"]:
+            message = sys.stdin.read()
+        else:
+            message = session.prompt(
+                HTML(f"<b>[{self.prompt_tokens + self.completion_tokens}] >>> </b>")
+            )
+
+        if message.lower().strip() == "/q":
+            raise EOFError
+        if message.lower() == "":
+            raise KeyboardInterrupt
+
+        if not config["non_interactive"] and message.lower().lstrip().startswith("/r"):
+            if copyable_blocks is not None:
+                copyable_blocks.clear()
+            self.console.width = shutil.get_terminal_size().columns
             if not config["non_interactive"]:
-                console.line()
+                self.console.rule("History (including context):")
+            self.print_messages(config, self.messages, copyable_blocks)
+            if not config["non_interactive"]:
+                self.console.rule()
+            raise KeyboardInterrupt
 
-            # Update message history and token counters
-            messages.append(message_response)
-            prompt_tokens += usage_response["prompt_tokens"]
-            completion_tokens += usage_response["completion_tokens"]
-            save_history(model, messages, prompt_tokens, completion_tokens)
-
-            if config["non_interactive"]:
-                # In non-interactive mode there is no looping back for a second prompt, you're done.
-                raise EOFError
-
-        case 400:
-            response = r.json()
-            if "error" in response:
-                if response["error"]["code"] == "context_length_exceeded":
+        if config["easy_copy"] and message.lower().lstrip().startswith("/c"):
+            # Use regex to find digits after /c or /copy
+            match = re.search(r"^/c(?:opy)?\s*(\d+)", message.lower())
+            if match:
+                block_id = int(match.group(1))
+                if block_id in copyable_blocks:
+                    try:
+                        pyperclip.copy(copyable_blocks[block_id])
+                        logger.info(f"Copied block {block_id} to clipboard")
+                    except pyperclip.PyperclipException:
+                        logger.error(
+                            "Unable to perform the copy operation. Check https://pyperclip.readthedocs.io/en/latest/#not-implemented-error"
+                        )
+                else:
                     logger.error(
-                        "[red bold]Maximum context length exceeded",
+                        f"No code block with ID {block_id} available",
                         extra={"highlighter": None},
                     )
+            elif self.messages:
+                pyperclip.copy(self.messages[-1]["content"])
+                logger.info(f"Copied previous response to clipboard")
+            raise KeyboardInterrupt
+
+        self.messages.append({"role": "user", "content": message})
+
+        if config["supplier"] == "azure":
+            api_key = config["azure_api_key"]
+            model = config["azure_deployment_name"]
+            api_version = config["azure_api_version"]
+            base_endpoint = config["azure_endpoint"]
+        elif config["supplier"] == "openai":
+            api_key = config["api-key"]
+            model = config["model"]
+            base_endpoint = config["openai_endpoint"]
+        else:
+            logger.error("Supplier must be either 'azure' or 'openai'")
+
+        # Base body parameters
+        body = {
+            "model": model,
+            "temperature": config["temperature"],
+            "messages": self.messages,
+        }
+        # Optional parameters
+        if "max_tokens" in config:
+            body["max_tokens"] = config["max_tokens"]
+        if config["json_mode"]:
+            body["response_format"] = {"type": "json_object"}
+
+        try:
+            if config["supplier"] == "azure":
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": api_key,
+                }
+                r = requests.post(
+                    f"{base_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+                    headers=headers,
+                    json=body,
+                    proxies=proxy,
+                )
+            elif config["supplier"] == "openai":
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                }
+                r = requests.post(
+                    f"{base_endpoint}/chat/completions",
+                    headers=headers,
+                    json=body,
+                    proxies=proxy,
+                )
+        except requests.ConnectionError:
+            logger.error(
+                "[red bold]Connection error, try again...", extra={"highlighter": None}
+            )
+            self.messages.pop()
+            raise KeyboardInterrupt
+        except requests.Timeout:
+            logger.error(
+                "[red bold]Connection timed out, try again...",
+                extra={"highlighter": None},
+            )
+            self.messages.pop()
+            raise KeyboardInterrupt
+
+        match r.status_code:
+            case 200:
+                response = r.json()
+
+                message_response = response["choices"][0]["message"]
+                usage_response = response["usage"]
+
+                if not config["non_interactive"]:
+                    self.console.line()
+                if config["markdown"]:
+                    self.print_markdown(
+                        message_response["content"].strip(), copyable_blocks
+                    )
+                else:
+                    print(message_response["content"].strip())
+                if not config["non_interactive"]:
+                    self.console.line()
+
+                # Update message history and token counters
+                self.messages.append(message_response)
+                self.prompt_tokens += usage_response["prompt_tokens"]
+                self.completion_tokens += usage_response["completion_tokens"]
+                save_history(
+                    model, self.messages, self.prompt_tokens, self.completion_tokens
+                )
+
+                if config["non_interactive"]:
+                    # In non-interactive mode there is no looping back for a second prompt, you're done.
                     raise EOFError
-                    # TODO: Develop a better strategy to manage this case
-            logger.error("[red bold]Invalid request", extra={"highlighter": None})
-            raise EOFError
 
-        case 401:
-            logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
-            raise EOFError
+            case 400:
+                response = r.json()
+                if "error" in response:
+                    if response["error"]["code"] == "context_length_exceeded":
+                        logger.error(
+                            "[red bold]Maximum context length exceeded",
+                            extra={"highlighter": None},
+                        )
+                        raise EOFError
+                        # TODO: Develop a better strategy to manage this case
+                logger.error("[red bold]Invalid request", extra={"highlighter": None})
+                raise EOFError
 
-        case 429:
-            logger.error(
-                "[red bold]Rate limit or maximum monthly limit exceeded",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
+            case 401:
+                logger.error("[red bold]Invalid API Key", extra={"highlighter": None})
+                raise EOFError
 
-        case 500:
-            logger.error(
-                "[red bold]Internal server error, check https://status.openai.com",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
+            case 429:
+                logger.error(
+                    "[red bold]Rate limit or maximum monthly limit exceeded",
+                    extra={"highlighter": None},
+                )
+                self.messages.pop()
+                raise KeyboardInterrupt
 
-        case 502 | 503:
-            logger.error(
-                "[red bold]The server seems to be overloaded, try again",
-                extra={"highlighter": None},
-            )
-            messages.pop()
-            raise KeyboardInterrupt
+            case 500:
+                logger.error(
+                    "[red bold]Internal server error, check https://status.openai.com",
+                    extra={"highlighter": None},
+                )
+                self.messages.pop()
+                raise KeyboardInterrupt
 
-        case _:
-            logger.error(
-                f"[red bold]Unknown error, status code {r.status_code}",
-                extra={"highlighter": None},
-            )
-            logger.error(r.json(), extra={"highlighter": None})
-            raise EOFError
+            case 502 | 503:
+                logger.error(
+                    "[red bold]The server seems to be overloaded, try again",
+                    extra={"highlighter": None},
+                )
+                self.messages.pop()
+                raise KeyboardInterrupt
+
+            case _:
+                logger.error(
+                    f"[red bold]Unknown error, status code {r.status_code}",
+                    extra={"highlighter": None},
+                )
+                logger.error(r.json(), extra={"highlighter": None})
+                raise EOFError
 
 
 @click.command()
@@ -532,13 +568,6 @@ def main(
 
     logger.info("[bold]ChatGPT CLI", extra={"highlighter": None})
 
-    history = FileHistory(HISTORY_FILE)
-
-    if multiline:
-        session = PromptSession(history=history, multiline=True)
-    else:
-        session = PromptSession(history=history)
-
     try:
         config = load_config(CONFIG_FILE)
     except FileNotFoundError:
@@ -546,6 +575,19 @@ def main(
             "[red bold]Configuration file not found", extra={"highlighter": None}
         )
         sys.exit(1)
+
+    # Create theme based on config
+    theme = get_console_theme(config.get("light_mode", False))
+
+    # Create ChatGptCli instance
+    cli = ChatGptCli(theme=theme)
+
+    history = FileHistory(HISTORY_FILE)
+
+    if multiline:
+        session = PromptSession(history=history, multiline=True)
+    else:
+        session = PromptSession(history=history)
 
     create_save_folder()
 
@@ -595,7 +637,7 @@ def main(
         model = config["model"]
 
     # Run the display expense function when exiting the script
-    atexit.register(display_expense, model=model)
+    atexit.register(cli.display_expense, model=model)
 
     logger.info(
         f"Supplier: [green bold]{config['supplier']}", extra={"highlighter": None}
@@ -604,7 +646,7 @@ def main(
 
     # Add the system message for code blocks in case markdown is enabled in the config file
     if config["markdown"] and not model.startswith("o1"):
-        add_markdown_system_message()
+        cli.add_markdown_system_message()
 
     # Context from the command line option
     if context:
@@ -612,7 +654,7 @@ def main(
             logger.info(
                 f"Context file: [green bold]{c.name}", extra={"highlighter": None}
             )
-            messages.append({"role": "system", "content": c.read().strip()})
+            cli.messages.append({"role": "system", "content": c.read().strip()})
 
     # Restore a previous session
     if restore:
@@ -622,14 +664,13 @@ def main(
         else:
             restore_file = f"chatgpt-session-{restore}.json"
         try:
-            global prompt_tokens, completion_tokens
             # If this feature is used --context is cleared
-            messages.clear()
+            cli.messages.clear()
             history_data = load_history_data(os.path.join(SAVE_FOLDER, restore_file))
             for message in history_data["messages"]:
-                messages.append(message)
-            prompt_tokens += history_data["prompt_tokens"]
-            completion_tokens += history_data["completion_tokens"]
+                cli.messages.append(message)
+            cli.prompt_tokens += history_data["prompt_tokens"]
+            cli.completion_tokens += history_data["completion_tokens"]
             logger.info(
                 f"Restored session: [bold green]{restore}",
                 extra={"highlighter": None},
@@ -646,11 +687,11 @@ def main(
         )
 
     if not non_interactive:
-        console.rule()
+        cli.console.rule()
 
     while True:
         try:
-            start_prompt(session, config, copyable_blocks, proxy)
+            cli.start_prompt(session, config, copyable_blocks, proxy)
         except KeyboardInterrupt:
             continue
         except EOFError:
