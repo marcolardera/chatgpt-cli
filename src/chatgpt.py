@@ -31,6 +31,9 @@ SAVE_FILE = (
 )
 ENV_VAR = "OPENAI_API_KEY"
 
+# Repository URL for help and documentation
+REPO_URL = "https://github.com/marcolardera/chatgpt-cli"
+
 # Azure price is not accurate, it depends on your subscription
 PRICING_RATE = {
     "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
@@ -294,6 +297,25 @@ def print_messages(
                 console.line()
 
 
+def show_help() -> None:
+    """
+    Display available commands in the chat session.
+    """
+    help_text = """
+[bold]Available Commands:[/bold]
+
+  [green]/q[/green]        - Quit the chat session
+  [green]/r[/green]        - Display conversation history
+  [green]/c <id>[/green]   - Copy code block by ID to clipboard
+  [green]/c[/green]        - Copy last response to clipboard
+  [green]/h, /help[/green] - Show this help message
+
+[bold]For more information, visit:[/bold]
+  [link={REPO_URL}]{REPO_URL}[/link]
+""".format(REPO_URL=REPO_URL)
+    console.print(help_text)
+
+
 def start_prompt(
     session: PromptSession,
     config: dict,
@@ -319,6 +341,11 @@ def start_prompt(
     if message.lower().strip() == "/q":
         raise EOFError
     if message.lower() == "":
+        raise KeyboardInterrupt
+
+    # Handle /h or /help command to show available commands
+    if message.lower().strip() in ["/h", "/help"]:
+        show_help()
         raise KeyboardInterrupt
 
     if not config["non_interactive"] and message.lower().lstrip().startswith("/r"):
@@ -493,7 +520,12 @@ def start_prompt(
             raise EOFError
 
 
-@click.command()
+@click.command(
+    help=f"""ChatGPT CLI - A simple command-line interface for ChatGPT.
+
+For more information and documentation, visit: {REPO_URL}
+"""
+)
 @click.option(
     "-c",
     "--context",
